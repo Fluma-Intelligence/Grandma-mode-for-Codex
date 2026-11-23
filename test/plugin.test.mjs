@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { cacheKey } from '../plugins/plain-speech/server/cache.mjs';
 import { codexProcessEnv } from '../plugins/plain-speech/server/codex-env.mjs';
 import { buildPrompt, maxLength } from '../plugins/plain-speech/server/translate.mjs';
@@ -95,10 +96,9 @@ test('a cached result belongs to its reply, selection, action, and first explana
   assert.notEqual(key, cacheKey('sample-chat', first, [0, 30], example, viewVersion('diagram')));
 });
 
-test('the real stdio server serves both cards and allows passive operations in an empty profile', { timeout: 12000 }, async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'grandma-mode-test-'));
-  const child = spawn(process.execPath, [fileURLToPath(new URL('server/index.mjs', plugin))], {
-    env: { ...process.env, CODEX_HOME: directory, PLAIN_SPEECH_CACHE_DIR: directory },
+async function withServer(directory, entry, verify, nodeArgs = []) {
+  const child = spawn(process.execPath, [...nodeArgs, entry], {
+    env: { ...process.env, CODEX_HOME: directory, PLAIN_SPEECH_CACHE_DIR: directory, PLAIN_SPEECH_CODEX: process.execPath },
     stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true,
   });
   const stopped = once(child, 'exit');
@@ -114,6 +114,21 @@ test('the real stdio server serves both cards and allows passive operations in a
   }
   const tool = async (name, arguments_) => (await request('tools/call', { name, arguments: arguments_ })).result;
   try {
+    await verify(request, tool);
+  } finally {
+    child.stdin.end();
+    child.kill();
+    await stopped;
+  }
+}
+
+test('the installed server serves its cards under an ESM parent in an empty profile', { timeout: 12000 }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'grandma mode test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const installed = join(directory, 'plain-speech');
+  await cp(plugin, installed, { recursive: true });
+  await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+  await withServer(directory, join(installed, 'server', 'index.mjs'), async (request, tool) => {
     const init = (await request('initialize', { protocolVersion: '2025-11-25' })).result;
     const manifest = await readJson(new URL('plugin.json', plugin));
     assert.equal(init.serverInfo.version, manifest.version);
@@ -155,10 +170,83 @@ test('the real stdio server serves both cards and allows passive operations in a
     assert.equal(await readJson(join(directory, 'grandma-mode', 'appearance', 'pet-size.json')), 'large');
     await updateAppearance({ setting: 'pet', pet: null });
     assert.deepEqual((await readAppearance())._meta, { accent: '#c1507a', pet: null, customPet: false, petSize: 'large' });
-  } finally {
-    child.stdin.end();
-    child.kill();
-    await stopped;
-    await rm(directory, { recursive: true, force: true });
+  });
+});
+
+test('CLI diagnostics have specific guidance in all four locales', async () => {
+  const script = await readFile(new URL('ui/locale.js', plugin), 'utf8');
+  for (const language of ['zh-CN', 'zh-TW', 'en', 'ja']) {
+    const window = { addEventListener() {} };
+    const document = { documentElement: {}, querySelector: () => ({}), querySelectorAll: () => [] };
+    runInNewContext(script, { window, document, navigator: { language } });
+    assert.equal(document.documentElement.lang, language);
+    const { t } = window.plainSpeechLocale;
+    assert.notEqual(t('cliOutdated'), t('retry'));
+    assert.match(t('modelUnavailable'), /GPT-5\.6 Sol/);
+    assert.notEqual(t('cliOutdated'), t('modelUnavailable'));
   }
+});
+
+test('a simpler fallback stays retryable and CLI failures hide raw diagnostics', { timeout: 12000 }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'grandma generation test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const mock = join(directory, 'fake-codex.mjs');
+  const preload = join(directory, 'simulate-codex.mjs');
+  await writeFile(mock, String.raw`
+    import assert from 'node:assert/strict';
+    const [attempt, ...args] = process.argv.slice(2);
+    assert.ok(args.includes('--ignore-user-config'));
+    assert.ok(args.includes('--ignore-rules'));
+    assert.equal(args[args.indexOf('--sandbox') + 1], 'read-only');
+    assert.equal(args[args.indexOf('--cd') + 1], process.cwd());
+    let prompt = '';
+    for await (const chunk of process.stdin.setEncoding('utf8')) prompt += chunk;
+    const data = JSON.parse(prompt.split('\n\n').at(-1));
+    const send = (event) => console.log(JSON.stringify(event));
+    if (data.source === 'obsolete CLI') {
+      console.error("error: unexpected argument '--ignore-rules' found");
+      process.exitCode = 2;
+    } else if (data.source === 'model denied') {
+      console.error("The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account.");
+      process.exitCode = 1;
+    } else if (data.source === 'missing model') {
+      send({ type: 'turn.failed', error: { message: 'model_not_found' } });
+      process.exitCode = 1;
+    } else if (data.source === 'generic failure') {
+      console.error('WARN model metadata for the requested model not loaded');
+      console.error('WARN chatgpt authentication required for remote plugin catalog');
+      console.error('FAKE_PRIVATE_DIAGNOSTIC');
+      process.exitCode = 1;
+    } else {
+      const answer = attempt === '1' ? data.firstAnswer : 'Extra receipts stopped in the test.';
+      send({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify({ answer }) } });
+      send({ type: 'turn.completed' });
+    }
+  `);
+  await writeFile(preload, `
+    import childProcess from 'node:child_process';
+    import { syncBuiltinESMExports } from 'node:module';
+    const originalSpawn = childProcess.spawn;
+    let attempt = 0;
+    childProcess.spawn = (file, args, options) =>
+      originalSpawn(file, [${JSON.stringify(mock)}, String(++attempt), ...args], options);
+    syncBuiltinESMExports();
+  `);
+  await withServer(directory, fileURLToPath(new URL('server/index.mjs', plugin)), async (_request, tool) => {
+    const firstAnswer = 'Old orders no longer got extra receipts in the test.';
+    const view = { action: 'simpler', source: example, firstAnswer };
+    const ask = async (generate) => (await tool('plain_speech_view', { ...view, generate })).structuredContent;
+    assert.deepEqual(await ask(true), { translation: firstAnswer, cached: false, fallback: true });
+    assert.deepEqual(await ask(false), { cached: false });
+    const translation = 'Extra receipts stopped in the test.';
+    assert.deepEqual(await ask(true), { translation, cached: false });
+    assert.deepEqual(await ask(true), { translation, cached: true });
+
+    for (const [source, code] of [['obsolete CLI', 'cliOutdated'], ['model denied', 'modelUnavailable'],
+      ['missing model', 'modelUnavailable'], ['generic failure', 'retry']]) {
+      const reply = await tool('translate_plain_speech', { source });
+      assert.equal(reply.structuredContent.code, code);
+      assert.doesNotMatch(JSON.stringify(reply), /FAKE_PRIVATE_DIAGNOSTIC|model_not_found|unexpected argument|not supported when using/);
+    }
+  }, ['--import', pathToFileURL(preload).href]);
 });

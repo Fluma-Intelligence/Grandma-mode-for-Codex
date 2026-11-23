@@ -1,8 +1,7 @@
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { speechError } from './errors.mjs';
-import { codexProcessEnv } from './codex-env.mjs';
+import { cliMissing, spawnCodex } from './codex-cli.mjs';
 
 const threadIdPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const unavailable = () => speechError('historyUnavailable', '暂时读不到这条聊天的回复。');
@@ -33,14 +32,15 @@ async function withReader(threadId, signal, read) {
   if (typeof threadId !== 'string' || !threadIdPattern.test(threadId)) {
     throw speechError('openFromChat', '请从 Codex 聊天里打开大白话。');
   }
-  const child = spawn(process.env.PLAIN_SPEECH_CODEX || 'codex', ['app-server', '--stdio', '--disable', 'apps', '--disable', 'hooks'], {
-    env: codexProcessEnv(), windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], signal,
+  const child = spawnCodex(['app-server', '--stdio', '--disable', 'apps', '--disable', 'hooks'], {
+    stdio: ['pipe', 'pipe', 'ignore'], signal,
   });
   const lines = createInterface({ input: child.stdout });
   const replies = lines[Symbol.asyncIterator]();
   const stop = () => { lines.close(); child.kill(); };
   const timeout = setTimeout(stop, 8000);
-  child.once('error', stop);
+  let spawnError;
+  child.once('error', (error) => { spawnError = error; stop(); });
   child.stdin.on('error', stop);
   let nextId = 0;
 
@@ -53,7 +53,7 @@ async function withReader(threadId, signal, read) {
     send({ id, method, params });
     for (;;) {
       const { value, done } = await replies.next();
-      if (done) throw unavailable();
+      if (done) throw spawnError?.code === 'ENOENT' ? cliMissing() : unavailable();
       let message;
       try { message = JSON.parse(value); } catch { continue; }
       if (message.id === id) return message.result;
@@ -62,7 +62,7 @@ async function withReader(threadId, signal, read) {
 
   try {
     if (!await request('initialize', {
-      clientInfo: { name: 'plain-speech', version: '0.6.2' }, capabilities: { experimentalApi: true },
+      clientInfo: { name: 'plain-speech', version: '0.6.3' }, capabilities: { experimentalApi: true },
     })) throw unavailable();
     send({ method: 'initialized' });
     return await read(request);

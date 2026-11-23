@@ -185,10 +185,14 @@
         const button = askButtons.find(({ dataset }) => dataset.action === action);
         if (!button) return;
         const exchange = make('div', 'ask-exchange');
+        exchange.dataset.action = action;
         const question = make('p', 'bubble bubble-prompt');
         label(question, button.dataset.i18n);
         exchange.append(question, make('p', 'bubble bubble-answer', data.translation));
-        askResults.append(exchange);
+        const previous = action === 'simpler' && askResults.querySelector('[data-action="simpler"]');
+        if (previous) previous.replaceWith(exchange);
+        else askResults.append(exchange);
+        if (data.fallback) return;
         answers.add(action);
         button.hidden = true;
         get('ask-usage').hidden = answers.size === askButtons.length;

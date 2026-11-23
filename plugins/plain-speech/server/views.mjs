@@ -24,7 +24,10 @@ const instructions = {
 export const viewActions = Object.keys(instructions);
 
 export function viewVersion(action, firstAnswer) {
-  return hashText(JSON.stringify([translationVersion, rules, instructions[action], ...(firstAnswer ? [hashText(firstAnswer)] : [])]));
+  const parts = [translationVersion, rules, instructions[action]];
+  // Earlier builds could cache the first answer as if it were a simpler answer.
+  if (action === 'simpler') parts.push('shorter-only-v1', hashText(firstAnswer ?? ''));
+  return hashText(JSON.stringify(parts));
 }
 
 const types = new Set(['text', 'status', 'compare', 'beforeAfter', 'timeline', 'chart', 'flow', 'relation']);
