@@ -5,8 +5,9 @@ import { cacheKey, readTranslation, saveTranslation } from './cache.mjs';
 import { maxLength, translate, translationVersion } from './translate.mjs';
 import { decodeDiagram, generateView, viewActions, viewVersion } from './views.mjs';
 import { speechError } from './errors.mjs';
-import { petSizes, readAppearance, readModel, readModelSettings, updateAppearance, updateModel } from './appearance.mjs';
-import { efforts, listModels, modelPattern, providerModels, providers } from './models.mjs';
+import { apiConnection, petSizes, readAppearance, readModel, readModelSettings, updateAppearance, updateModel } from './appearance.mjs';
+import { defaultModel, efforts, listModels, modelPattern, providers } from './models.mjs';
+import { listApiModels } from './provider-api.mjs';
 
 const name = 'plain-speech';
 const displayName = 'Grandma Mode';
@@ -46,7 +47,20 @@ const selectionField = {
 const annotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
 const resource = { uri, name: displayName, mimeType, _meta: { ui: { csp: {} } } };
 const cardToolMeta = { ui: { resourceUri: uri, visibility: ['app'] }, 'openai/widgetAccessible': true };
+const endpointFields = {
+  baseURL: { type: 'string', maxLength: 512 },
+  apiKey: { type: ['string', 'null'], maxLength: 512, writeOnly: true },
+};
 const tools = [
+  {
+    name: 'list_plain_speech_api_models', title: '读取接口的模型列表',
+    description: '通过用户填写的接口地址和 API Key 读取可用模型。',
+    inputSchema: {
+      type: 'object', required: ['provider', 'baseURL'], additionalProperties: false,
+      properties: { provider: { type: 'string', enum: providers.slice(1) }, ...endpointFields },
+    },
+    annotations, _meta: cardToolMeta,
+  },
   {
     name: 'read_plain_speech_appearance', title: '读取本机外观',
     description: '从本机取回主题色、角色包和角色大小。',
@@ -81,7 +95,7 @@ const tools = [
       properties: {
         provider: { type: 'string', enum: providers }, model: { type: 'string', pattern: modelPattern },
         effort: { type: 'string', enum: efforts },
-        apiKey: { type: ['string', 'null'], maxLength: 512, writeOnly: true },
+        ...endpointFields,
       },
     },
     annotations: { ...annotations, readOnlyHint: false, openWorldHint: false }, _meta: cardToolMeta,
@@ -202,18 +216,28 @@ function selectSource(reply, selection) {
 }
 
 async function callTool(params, id) {
+  if (params.name === 'list_plain_speech_api_models') {
+    try {
+      const connection = await apiConnection(params.arguments ?? {});
+      if (!connection) throw speechError('apiEndpointInvalid', '请检查接口地址和 API Key 的格式。');
+      return { ...toolResult('已读取模型列表。'), _meta: { catalog: await listApiModels(connection) } };
+    } catch (error) {
+      const message = error?.speechCode ? error.message : '读不到模型列表。请检查接口地址和 Key。';
+      return toolResult(message, { code: error?.speechCode ?? 'apiCatalogUnavailable', error: message });
+    }
+  }
   if (params.name === 'read_plain_speech_models' || params.name === 'update_plain_speech_model') {
     const failure = toolResult('无法读取或保存模型设置。', { code: 'modelSettingError', error: '无法读取或保存模型设置。' });
     try {
       if (params.name === 'update_plain_speech_model') {
         if (await updateModel(params.arguments ?? {})) return failure;
-        return toolResult('已保存模型设置。', { saved: true });
+        return { ...toolResult('已保存模型设置。', { saved: true }), _meta: await readModelSettings() };
       }
       const settings = await readModelSettings();
       const catalog = await listModels().catch(() => null);
       return {
         ...toolResult('已读取模型设置。'),
-        _meta: { ...settings, providerModels, catalog },
+        _meta: { ...settings, defaultModel, catalog },
       };
     } catch {
       return failure;
@@ -323,7 +347,7 @@ async function receive({ id, method, params = {} }) {
       result = {
         protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'].includes(params.protocolVersion)
           ? params.protocolVersion : '2025-11-25',
-        serverInfo: { name, version: '0.6.4' },
+        serverInfo: { name, version: '0.6.5' },
         capabilities: { tools: {}, resources: {} },
       };
       break;

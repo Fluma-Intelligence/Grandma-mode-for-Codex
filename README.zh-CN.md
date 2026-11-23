@@ -46,7 +46,9 @@ codex plugin add plain-speech@grandma-mode
 
 ## 选择模型
 
-点齿轮打开「翻译模型」。选「Codex 账号」时，可以用默认的 GPT-6 Luna，也可以从已登录的 CLI 列表里选其他模型。选 OpenAI API、Google Gemini API 或 DeepSeek API 时，可以用建议模型，也可以填兼容的模型 ID。填入自己的 API Key 再点「保存」。各家供应商的设置分别保存。点「移除 Key」可以从这台设备删除已保存的 Key。
+点齿轮打开「翻译模型」。默认使用本机 Codex 订阅和 GPT-6 Luna，也可以从已登录的 CLI 列表里换模型。
+
+选择「自定义 API」后会展开接口设置。选接口类型，填接口地址和 Key，点「读取模型」，从返回列表里选模型再保存。DeepSeek、OpenRouter 和支持 Chat Completions 的本地服务可选「OpenAI 兼容 API」。远程接口使用 HTTPS，本机接口可以用 HTTP，Key 可留空。保存的 Key 只会用于对应的接口地址和类型，可在设置中移除。
 
 ## 主题和角色
 

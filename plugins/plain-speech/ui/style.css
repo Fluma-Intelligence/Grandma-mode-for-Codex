@@ -149,7 +149,8 @@ h1 { margin: 0; font-size: clamp(23px, 4.6vw, 36px); font-weight: 800; line-heig
 .model-form :is(select, input) { width: 100%; min-width: 0; min-height: 34px; padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; }
 .model-form :is(select, input):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .model-form :is(select, input):disabled { opacity: .65; }
-.model-form :is(#api-model, #api-model-label, #provider-key, #provider-key-label, #model-hint):not([hidden]) { animation: panel-in .24s var(--ease-out) both; }
+.api-fields { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; row-gap: 8px; animation: panel-in .24s var(--ease-out) both; }
+.api-model-row { display: flex; gap: 6px; min-width: 0; }
 .model-hint, .model-actions { grid-column: 1 / -1; }
 .model-hint { margin: 0; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
 .model-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
@@ -299,7 +300,7 @@ h1 { margin: 0; font-size: clamp(23px, 4.6vw, 36px); font-weight: 800; line-heig
 @media (prefers-reduced-motion: reduce) {
   .loading-dots i { animation: none; }
   .card, .view-panel, .reading, .diagram, .ask-exchange, .bubble-answer,
-  .diagram-list > li, .history-panel, .original[open] .source, .appearance-page, .model-form > * { animation: none !important; }
+  .diagram-list > li, .history-panel, .original[open] .source, .appearance-page, .api-fields { animation: none !important; }
   .tab-glider, .primary, .primary .arrow, .bubble-prompt, .text-action,
   .tabs button, .tab-icon, .stage, .eye, .diagram-meter i { transition: none !important; }
 }

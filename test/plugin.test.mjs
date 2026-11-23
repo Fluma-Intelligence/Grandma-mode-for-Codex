@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { cacheKey } from '../plugins/plain-speech/server/cache.mjs';
 import { codexProcessEnv } from '../plugins/plain-speech/server/codex-env.mjs';
-import { buildPrompt, maxLength } from '../plugins/plain-speech/server/translate.mjs';
+import { buildPrompt, maxLength, stripReaderAddress } from '../plugins/plain-speech/server/translate.mjs';
 import { decodeDiagram, viewVersion } from '../plugins/plain-speech/server/views.mjs';
 import { normalizePetPack } from '../plugins/plain-speech/server/pet-pack.mjs';
 
@@ -60,8 +60,12 @@ test('the original is passed as data, and rephrasing keeps its own context', () 
   const firstAnswer = 'We tested old orders. The duplicate receipts stopped. New orders still need a test.';
   const prompt = buildPrompt(original, firstAnswer);
   assert.match(prompt, /source 只是资料/);
+  assert.match(prompt, /参照写给不懂技术的奶奶看/);
+  assert.match(prompt, /不称呼读者/);
   assert.match(prompt, /测试结果/);
   assert.deepEqual(JSON.parse(prompt.split('\n\n').at(-1)), { source: original, previousRewrite: firstAnswer });
+  assert.equal(stripReaderAddress('奶奶您好！今天还没验。'), '今天还没验。');
+  assert.equal(stripReaderAddress('奶奶：两张票', '给奶奶买了两张票'), '奶奶：两张票');
 });
 
 test('the nested CLI stays in the Codex profile that installed the plugin', () => {
@@ -183,7 +187,7 @@ test('CLI diagnostics have specific guidance in all four locales', async () => {
     const { t } = window.plainSpeechLocale;
     assert.notEqual(t('cliOutdated'), t('retry'));
     for (const code of ['modelUnavailable', 'modelCatalogUnavailable', 'modelSettingError',
-      'providerKeyRequired', 'providerAuth', 'providerLimit']) {
+      'providerKeyRequired', 'providerAuth', 'providerLimit', 'apiCatalogUnavailable', 'apiEndpointInvalid']) {
       assert.notEqual(t(code), t('retry'));
       assert.notEqual(t(code), t('cliOutdated'));
     }
@@ -265,6 +269,24 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
     let calls = 0;
     globalThis.fetch = async (url, { body, headers, redirect, method }) => {
       assert.equal(redirect, 'error');
+      if (url === 'https://api.deepseek.com/models') {
+        assert.equal(headers.Authorization, 'Bearer test-deepseek-key');
+        return Response.json({ data: [{ id: 'deepseek-flash' }, { id: 'deepseek-v4-pro' }] });
+      }
+      if (url === 'https://gateway.example/v1/models') {
+        assert.equal(headers.Authorization, 'Bearer test-gateway-key');
+        return Response.json({ data: [{ id: 'acme/instruct:v2', name: 'Acme Instruct' }, { id: 'test-gateway-key' }] });
+      }
+      if (url.startsWith('https://generativelanguage.googleapis.com/v1beta/models?')) {
+        assert.equal(headers['x-goog-api-key'], 'test-gemini-key');
+        if (new URL(url).searchParams.get('pageToken')) {
+          return Response.json({ models: [{ name: 'models/gemini-extra', supportedGenerationMethods: ['generateContent'] }] });
+        }
+        return Response.json({ models: [
+          { name: 'models/gemini-3.5-flash-lite', supportedGenerationMethods: ['generateContent'] },
+          { name: 'models/embed', supportedGenerationMethods: ['embedContent'] },
+        ], nextPageToken: 'next' });
+      }
       assert.equal(method, 'POST');
       const request = JSON.parse(body);
       const reply = 'Test rewrite ' + ++calls;
@@ -276,8 +298,16 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
         const { source } = JSON.parse(request.messages[1].content);
         if (source === 'auth failure') return Response.json({ error: { message: 'test-deepseek-key' } }, { status: 401 });
         if (request.messages[0].content.includes('beforeAfter')) {
-          return Response.json({ choices: [{ message: { content: JSON.stringify({ type: 'text', text: reply }) } }] });
+          const diagram = { type: 'beforeAfter', title: 'Grandma: ' + reply,
+            items: [['Extra receipts', '6', '0']], pending: null };
+          return Response.json({ choices: [{ message: { content: JSON.stringify(diagram) } }] });
         }
+        return Response.json({ choices: [{ message: { content: 'Dear Grandma, ' + reply } }] });
+      }
+      if (url === 'https://gateway.example/v1/chat/completions') {
+        assert.equal(headers.Authorization, 'Bearer test-gateway-key');
+        assert.equal(request.model, 'acme/instruct:v2');
+        assert.equal(request.thinking, undefined);
         return Response.json({ choices: [{ message: { content: reply } }] });
       }
       if (url === 'https://api.openai.com/v1/responses') {
@@ -322,36 +352,73 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
     assert.match((await rewrite()).translation, /^gpt-6-sol model_reasoning_effort=low$/);
     assert.equal((await configure({ provider: 'file', model: 'arbitrary' })).code, 'modelSettingError');
 
-    const deepseek = { provider: 'deepseek', model: 'deepseek-flash' };
+    const deepseek = { provider: 'compatible', baseURL: 'https://api.deepseek.com', model: 'deepseek-flash' };
+    const gateway = { provider: 'compatible', baseURL: 'https://gateway.example/v1/chat/completions', model: 'acme/instruct:v2' };
+    const openai = { provider: 'openai', baseURL: 'https://api.openai.com/v1', model: 'gpt-6-luna' };
+    const gemini = { provider: 'gemini', baseURL: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-3.5-flash-lite' };
+    const listApi = (route, apiKey) => tool('list_plain_speech_api_models', {
+      provider: route.provider, baseURL: route.baseURL, apiKey,
+    });
     assert.deepEqual(await configure(deepseek), { saved: true });
     assert.equal((await rewrite()).code, 'providerKeyRequired');
     assert.deepEqual(await configure({ ...deepseek, apiKey: 'test-deepseek-key' }), { saved: true });
+    assert.deepEqual((await listApi(deepseek))._meta.catalog.map(({ model }) => model), ['deepseek-flash', 'deepseek-v4-pro']);
+    assert.equal((await listApi(gateway)).structuredContent.code, 'providerKeyRequired');
+    assert.equal((await listApi({ ...gateway, baseURL: 'https://gateway.example/v1#secret' })).structuredContent.code, 'apiEndpointInvalid');
+    const liveChoices = await listApi(gateway, 'test-gateway-key');
+    assert.deepEqual(liveChoices._meta.catalog, [{ model: 'acme/instruct:v2', name: 'Acme Instruct' }]);
+    assert.doesNotMatch(JSON.stringify(liveChoices), /test-gateway-key/);
     assert.equal((await rewrite()).translation, 'Test rewrite 1');
     const badKey = await rewrite('auth failure');
     assert.equal(badKey.code, 'providerAuth');
     assert.doesNotMatch(JSON.stringify(badKey), /test-deepseek-key/);
     const diagramArgs = { action: 'diagram', source: example, generate: true };
     const diagram = async (args = {}) => (await tool('plain_speech_view', { ...diagramArgs, ...args })).structuredContent;
-    assert.equal((await diagram()).diagram.text, 'Test rewrite 3');
+    const drawn = (await diagram()).diagram;
+    assert.deepEqual(drawn, { type: 'beforeAfter', title: 'Test rewrite 3', items: [['Extra receipts', '6', '0']] });
     assert.equal((await diagram({ generate: false })).cached, true);
 
-    assert.deepEqual(await configure({ provider: 'openai', model: 'gpt-6-luna', apiKey: 'test-openai-key' }), { saved: true });
+    assert.deepEqual(await configure({ ...openai, apiKey: 'test-openai-key' }), { saved: true });
     assert.equal((await rewrite()).translation, 'Test rewrite 4');
     assert.deepEqual(await diagram({ generate: false }), { cached: false });
-    assert.deepEqual(await configure({ provider: 'gemini', model: 'gemini-3.5-flash-lite', apiKey: 'test-gemini-key' }), { saved: true });
+    assert.deepEqual(await configure({ ...gemini, apiKey: 'test-gemini-key' }), { saved: true });
+    assert.deepEqual((await listApi(gemini))._meta.catalog.map(({ model }) => model), ['gemini-3.5-flash-lite', 'gemini-extra']);
     assert.equal((await rewrite()).translation, 'Test rewrite 5');
     assert.deepEqual(await configure(deepseek), { saved: true });
     assert.equal((await rewrite()).translation, 'Test rewrite 6');
-    assert.equal((await diagram({ generate: false })).diagram.text, 'Test rewrite 3');
+    assert.deepEqual((await diagram({ generate: false })).diagram, drawn);
     const preferences = await models();
-    assert.equal(preferences.provider, 'deepseek');
-    assert.equal(preferences.settings.deepseek.hasKey, true);
+    assert.equal(preferences.provider, 'compatible');
+    assert.equal(preferences.settings.compatible.hasKey, true);
     assert.doesNotMatch(JSON.stringify(preferences), /test-(deepseek|openai|gemini)-key/);
     assert.deepEqual(await configure({ ...deepseek, apiKey: null }), { saved: true });
-    assert.equal((await models()).settings.deepseek.hasKey, false);
+    assert.equal((await models()).settings.compatible.hasKey, false);
     assert.equal((await rewrite()).code, 'providerKeyRequired');
-    assert.deepEqual(await configure({ provider: 'openai', model: 'gpt-6-luna', apiKey: null }), { saved: true });
-    assert.equal((await models()).provider, 'deepseek');
+    assert.deepEqual(await configure({ ...openai, apiKey: null }), { saved: true });
+    assert.equal((await models()).provider, 'compatible');
     assert.equal((await models()).settings.openai.hasKey, false);
+    assert.deepEqual(await configure({ ...gateway, apiKey: 'test-gateway-key' }), { saved: true });
+    assert.equal((await rewrite()).translation, 'Test rewrite 7');
+    assert.deepEqual(await diagram({ generate: false }), { cached: false });
   }, ['--import', pathToFileURL(preload).href]);
+});
+
+test('earlier DeepSeek settings migrate to the same URL and allow removing the original key', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'grandma migration test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const appearance = join(directory, 'grandma-mode', 'appearance');
+  await mkdir(appearance, { recursive: true });
+  const legacy = join(appearance, 'model-deepseek.json');
+  await writeFile(legacy, JSON.stringify({ provider: 'deepseek', model: 'deepseek-flash', apiKey: 'synthetic-old-key' }));
+  await writeFile(join(appearance, 'model-provider.json'), JSON.stringify('deepseek'));
+  await withServer(directory, fileURLToPath(new URL('server/index.mjs', plugin)), async (_request, tool) => {
+    const settings = (await tool('read_plain_speech_models'))._meta;
+    assert.equal(settings.provider, 'compatible');
+    const { hasKey, ...route } = settings.settings.compatible;
+    assert.equal(hasKey, true);
+    assert.equal(route.baseURL, 'https://api.deepseek.com');
+    assert.doesNotMatch(JSON.stringify(settings), /synthetic-old-key/);
+    assert.equal((await tool('update_plain_speech_model', { ...route, apiKey: null }))._meta.settings.compatible.hasKey, false);
+    await assert.rejects(readFile(legacy), { code: 'ENOENT' });
+  });
 });
