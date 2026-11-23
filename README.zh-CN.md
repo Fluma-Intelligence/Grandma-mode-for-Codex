@@ -4,7 +4,7 @@
 
 在 Codex Desktop 聊天旁边加一张大白话卡片。能翻最新写完的回复、以前的回复、你选中的一段，或者自己粘贴的报告。
 
-![用虚构的面包店报告演示一句话说清、前后对照图和气泡追问。](docs/demo.gif)
+![用虚构的订单和重复收据报告演示一句话说清、前后对照图和气泡追问。](docs/demo.gif)
 
 ## 安装
 
@@ -12,7 +12,7 @@
 
 ### 从 GitHub 安装
 
-等你的账号能访问仓库及 `main` 分支后，在终端运行：
+在终端运行下面两条命令。
 
 ```sh
 codex plugin marketplace add Fluma-Intelligence/Grandma-mode-for-Codex --ref main

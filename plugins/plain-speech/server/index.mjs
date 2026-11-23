@@ -256,10 +256,12 @@ async function callTool(params, id) {
     const translation = cached ?? await (extra ? generateView(args.action, source, controller.signal, firstAnswer)
       : translate(source, controller.signal, previousRewrite));
     controller.signal.throwIfAborted();
-    if (key && !cached) await saveTranslation(key, translation);
+    const fallback = extra && args.action === 'simpler' && translation === firstAnswer;
+    if (key && !cached && !fallback) await saveTranslation(key, translation);
     const result = extra ? toolResult('已读取结果。', args.action === 'diagram'
       ? { diagram: decodeDiagram(translation), cached: Boolean(cached) }
-      : { translation, cached: Boolean(cached) }) : toolResult('大白话已生成。', { translation });
+      : { translation, cached: Boolean(cached), ...(fallback ? { fallback } : {}) })
+      : toolResult('大白话已生成。', { translation });
     return reply ? { ...result, _meta: { ...reply, cached: Boolean(cached) } } : result;
   } catch (error) {
     const failure = controller.signal.aborted ? speechError('cancelled', '这次翻译停下了。可以再翻一次。')
@@ -283,7 +285,7 @@ async function receive({ id, method, params = {} }) {
       result = {
         protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'].includes(params.protocolVersion)
           ? params.protocolVersion : '2025-11-25',
-        serverInfo: { name, version: '0.6.2' },
+        serverInfo: { name, version: '0.6.3' },
         capabilities: { tools: {}, resources: {} },
       };
       break;

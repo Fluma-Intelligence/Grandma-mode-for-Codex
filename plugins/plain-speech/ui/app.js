@@ -515,7 +515,7 @@
     });
 
     bridgeReady = request('ui/initialize', {
-      appInfo: { name: 'plain-speech', version: '0.6.2' },
+      appInfo: { name: 'plain-speech', version: '0.6.3' },
       appCapabilities: {},
       protocolVersion: '2026-01-26',
     }, 4500).then((result) => {

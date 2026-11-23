@@ -4,7 +4,7 @@
 
 Grandma Mode adds a card to Codex Desktop that explains replies in everyday words. Start with the latest completed reply, pick an older one, select a passage, or paste a report.
 
-![Grandma Mode rewrites a fictional bakery report, compares the results, and answers what Grandma should do next.](docs/demo.gif)
+![Grandma Mode summarizes a fictional report about orders and duplicate receipts, compares the results, and answers what Grandma should do next.](docs/demo.gif)
 
 ## Install
 
@@ -12,7 +12,7 @@ You need Codex Desktop with local plugins and chat-sidebar apps, Git for a GitHu
 
 ### From GitHub
 
-Once the repository and its `main` branch are accessible to your account, run these in a terminal:
+Run these commands in a terminal.
 
 ```sh
 codex plugin marketplace add Fluma-Intelligence/Grandma-mode-for-Codex --ref main
