@@ -39,6 +39,8 @@
   let snapshot;
   let extraPending = false;
   let cachedDiagramPending;
+  let modelRevision = 0;
+  let lockModelSelection;
   const views = window.createPlainSpeechViews({ onTab: switchView, onAction: loadExtraView });
 
   function hasChat() {
@@ -71,6 +73,7 @@
     selectionButton.disabled = unavailable;
     for (const action of replyList.querySelectorAll('button')) action.disabled = unavailable;
     views.setBusy(unavailable);
+    lockModelSelection?.(unavailable);
     label(get('action-label'), wantsLatest() ? 'latest' : 'title');
   }
 
@@ -89,13 +92,13 @@
   }
   original.addEventListener('toggle', () => {
     syncOriginalLabel();
-    if (original.open && hasChat() && !source.value && !busy && !sourcePending && !extraPending && !edited) loadSource();
+    if (original.open && hasChat() && !source.value && !busy && !sourcePending && !extraPending && !edited) loadSource(sourceTarget);
     sync();
   });
   window.addEventListener('languagechange', syncOriginalLabel);
 
   function prefill(text) {
-    if (!text || edited || busy || source.value) return;
+    if (!text || edited || busy || sourcePending || snapshot?.target || source.value) return;
     source.value = text;
     setSnapshot({ source: text });
     if (answer && !answerSource) answerSource = text;
@@ -172,6 +175,27 @@
     if (setSnapshot(picked)) clear();
   }
 
+  function chooseReply(target, selection, text) {
+    const current = snapshot?.target;
+    if (current?.turnId === target.turnId && current.messageId === target.messageId
+        && (!target.hash || current.hash === target.hash)
+        && snapshot.selection?.start === selection?.start && snapshot.selection?.end === selection?.end) return;
+    if (!selection) showSource('', target);
+    setSnapshot({ target, selection, source: text });
+    clear();
+  }
+
+  function modelChanged() {
+    modelRevision += 1;
+    cachedDiagramPending = undefined;
+    firstAnswer = '';
+    views.reset();
+    clear();
+    label(status, null);
+    sync();
+    if (views.current() === 'diagram') loadExtraView('diagram', false);
+  }
+
   function switchView(name) {
     if (name === 'text' || busy || sourcePending || extraPending) return;
     captureSelection();
@@ -191,6 +215,7 @@
       return;
     }
     const currentView = view;
+    const currentModel = modelRevision;
     if (!generate && cachedDiagramPending?.view === currentView && cachedDiagramPending.chosen === chosen) return;
     const request = { view: currentView, chosen };
     if (generate) {
@@ -213,10 +238,11 @@
         ...(action === 'simpler' && firstAnswer ? { firstAnswer } : {}) });
         result = checkResult(await call('plain_speech_view', args, generate ? 108_000 : 14_000));
       }
-      if (currentView !== view || snapshot !== chosen || (!generate && (busy || sourcePending || extraPending))) return;
+      if (currentView !== view || currentModel !== modelRevision || snapshot !== chosen
+          || (!generate && (busy || sourcePending || extraPending))) return;
       const data = result?.structuredContent;
       if (data?.diagram || data?.translation) {
-        if (!chosen && result._meta?.source) {
+        if (!chosen?.source && result._meta?.source) {
           showSource(result._meta.source, result._meta.target);
           setSnapshot({ source: result._meta.source, target: result._meta.target });
         }
@@ -236,6 +262,7 @@
 
   async function loadSource(target) {
     const currentView = view;
+    if (target) chooseReply(target);
     sourcePending = true;
     showNotice('readingSource');
     sync();
@@ -383,11 +410,15 @@
       prefill(result?._meta?.source);
       return;
     }
-    if (!busy && !answer && !edited && result?.structuredContent?.translation) finish(result);
+    if (!busy && !snapshot && !answer && !edited && result?.structuredContent?.translation) finish(result);
   }
 
   async function runRewrite(name, args, { text, selection, previousRewrite } = {}) {
     const currentView = view;
+    if (name === 'translate_latest_reply' || name === 'translate_linked_reply') {
+      showSource('', undefined);
+      setSnapshot(undefined);
+    }
     views.select('text');
     if (!previousRewrite) clear();
     begin();
@@ -414,6 +445,7 @@
   function rewriteReply(target, selection) {
     const args = chatArgs({ target, confirmed: true, ...(selection ? { selection } : {}) });
     const text = selection ? source.value.slice(selection.start, selection.end) : undefined;
+    chooseReply(target, selection, text);
     return runRewrite('translate_plain_speech_reply', args, { text, selection });
   }
 
@@ -515,7 +547,7 @@
     });
 
     bridgeReady = request('ui/initialize', {
-      appInfo: { name: 'plain-speech', version: '0.6.3' },
+      appInfo: { name: 'plain-speech', version: '0.6.4' },
       appCapabilities: {},
       protocolVersion: '2026-01-26',
     }, 4500).then((result) => {
@@ -563,7 +595,9 @@
       window.openai.openExternal({ href });
     }
   });
-  window.setupPlainSpeechAppearance(standalone ? undefined : async (name, args) => checkResult(await call(name, args, 14_000)));
+  lockModelSelection = window.setupPlainSpeechAppearance(
+    standalone ? undefined : async (name, args) => checkResult(await call(name, args, 14_000)), modelChanged,
+  );
   syncOriginalLabel();
   sync();
 })();

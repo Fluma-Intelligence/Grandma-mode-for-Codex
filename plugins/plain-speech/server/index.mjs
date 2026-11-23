@@ -2,10 +2,11 @@ import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { listReplyPreviews, readReplySnapshot } from './latest-reply.mjs';
 import { cacheKey, readTranslation, saveTranslation } from './cache.mjs';
-import { maxLength, translate } from './translate.mjs';
+import { maxLength, translate, translationVersion } from './translate.mjs';
 import { decodeDiagram, generateView, viewActions, viewVersion } from './views.mjs';
 import { speechError } from './errors.mjs';
-import { petSizes, readAppearance, updateAppearance } from './appearance.mjs';
+import { petSizes, readAppearance, readModel, readModelSettings, updateAppearance, updateModel } from './appearance.mjs';
+import { efforts, listModels, modelPattern, providerModels, providers } from './models.mjs';
 
 const name = 'plain-speech';
 const displayName = 'Grandma Mode';
@@ -62,6 +63,25 @@ const tools = [
         accent: { type: ['string', 'null'], pattern: '^#[0-9a-fA-F]{6}$' },
         pet: { type: ['object', 'null'] },
         petSize: { type: 'string', enum: petSizes },
+      },
+    },
+    annotations: { ...annotations, readOnlyHint: false, openWorldHint: false }, _meta: cardToolMeta,
+  },
+  {
+    name: 'read_plain_speech_models', title: '读取翻译模型设置',
+    description: '从本机读取供应商和模型设置，并列出 Codex 账号可选的模型。',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations, _meta: cardToolMeta,
+  },
+  {
+    name: 'update_plain_speech_model', title: '保存翻译模型设置',
+    description: '从卡片保存供应商、模型和用户填写的 API Key。',
+    inputSchema: {
+      type: 'object', required: ['provider', 'model'], additionalProperties: false,
+      properties: {
+        provider: { type: 'string', enum: providers }, model: { type: 'string', pattern: modelPattern },
+        effort: { type: 'string', enum: efforts },
+        apiKey: { type: ['string', 'null'], maxLength: 512, writeOnly: true },
       },
     },
     annotations: { ...annotations, readOnlyHint: false, openWorldHint: false }, _meta: cardToolMeta,
@@ -182,6 +202,23 @@ function selectSource(reply, selection) {
 }
 
 async function callTool(params, id) {
+  if (params.name === 'read_plain_speech_models' || params.name === 'update_plain_speech_model') {
+    const failure = toolResult('无法读取或保存模型设置。', { code: 'modelSettingError', error: '无法读取或保存模型设置。' });
+    try {
+      if (params.name === 'update_plain_speech_model') {
+        if (await updateModel(params.arguments ?? {})) return failure;
+        return toolResult('已保存模型设置。', { saved: true });
+      }
+      const settings = await readModelSettings();
+      const catalog = await listModels().catch(() => null);
+      return {
+        ...toolResult('已读取模型设置。'),
+        _meta: { ...settings, providerModels, catalog },
+      };
+    } catch {
+      return failure;
+    }
+  }
   if (params.name === 'read_plain_speech_appearance' || params.name === 'update_plain_speech_appearance') {
     try {
       if (params.name === 'read_plain_speech_appearance') {
@@ -217,6 +254,7 @@ async function callTool(params, id) {
   const controller = new AbortController();
   active.set(id, controller);
   try {
+    const route = read || list ? undefined : await readModel();
     const threadId = linked || read || list || selected || extra ? args.threadId ?? params._meta?.threadId : params._meta?.threadId;
     if (list) {
       const page = await listReplyPreviews(threadId, controller.signal, args.cursor);
@@ -238,7 +276,7 @@ async function callTool(params, id) {
     }
     if (extra && !viewActions.includes(args.action)) throw speechError('retry', '请选择一个功能。');
     const range = selection && [selection.start, selection.end];
-    const replyKey = reply && cacheKey(threadId, reply.target, range, source);
+    const replyKey = reply && cacheKey(threadId, reply.target, range, source, translationVersion(route));
     let firstAnswer;
     if (extra && args.action === 'simpler') {
       firstAnswer = args.firstAnswer ?? (replyKey ? await readTranslation(replyKey) : undefined);
@@ -247,14 +285,14 @@ async function callTool(params, id) {
         throw speechError('simplerNeedsAnswer', '先看「一句话说清」，小 Codex 才能接着讲。');
       }
     }
-    const key = extra ? cacheKey(reply ? threadId : null, reply?.target, range, source, viewVersion(args.action, firstAnswer))
+    const key = extra ? cacheKey(reply ? threadId : null, reply?.target, range, source, viewVersion(args.action, firstAnswer, route))
       : replyKey;
     let cached = key ? await readTranslation(key) : undefined;
     controller.signal.throwIfAborted();
     if (args.action === 'diagram' && extra && cached && !decodeDiagram(cached)) cached = undefined;
     if (extra && args.generate !== true && !cached) return toolResult('还没有保存的结果。', { cached: false });
-    const translation = cached ?? await (extra ? generateView(args.action, source, controller.signal, firstAnswer)
-      : translate(source, controller.signal, previousRewrite));
+    const translation = cached ?? await (extra ? generateView(args.action, source, controller.signal, firstAnswer, route)
+      : translate(source, controller.signal, previousRewrite, undefined, route));
     controller.signal.throwIfAborted();
     const fallback = extra && args.action === 'simpler' && translation === firstAnswer;
     if (key && !cached && !fallback) await saveTranslation(key, translation);
@@ -285,7 +323,7 @@ async function receive({ id, method, params = {} }) {
       result = {
         protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'].includes(params.protocolVersion)
           ? params.protocolVersion : '2025-11-25',
-        serverInfo: { name, version: '0.6.3' },
+        serverInfo: { name, version: '0.6.4' },
         capabilities: { tools: {}, resources: {} },
       };
       break;

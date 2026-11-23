@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createInterface } from 'node:readline';
 import { speechError } from './errors.mjs';
-import { cliMissing, spawnCodex } from './codex-cli.mjs';
+import { withAppServer } from './app-server.mjs';
 
 const threadIdPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const unavailable = () => speechError('historyUnavailable', '暂时读不到这条聊天的回复。');
@@ -32,44 +31,7 @@ async function withReader(threadId, signal, read) {
   if (typeof threadId !== 'string' || !threadIdPattern.test(threadId)) {
     throw speechError('openFromChat', '请从 Codex 聊天里打开大白话。');
   }
-  const child = spawnCodex(['app-server', '--stdio', '--disable', 'apps', '--disable', 'hooks'], {
-    stdio: ['pipe', 'pipe', 'ignore'], signal,
-  });
-  const lines = createInterface({ input: child.stdout });
-  const replies = lines[Symbol.asyncIterator]();
-  const stop = () => { lines.close(); child.kill(); };
-  const timeout = setTimeout(stop, 8000);
-  let spawnError;
-  child.once('error', (error) => { spawnError = error; stop(); });
-  child.stdin.on('error', stop);
-  let nextId = 0;
-
-  function send(message) {
-    child.stdin.write(`${JSON.stringify(message)}\n`);
-  }
-
-  async function request(method, params) {
-    const id = ++nextId;
-    send({ id, method, params });
-    for (;;) {
-      const { value, done } = await replies.next();
-      if (done) throw spawnError?.code === 'ENOENT' ? cliMissing() : unavailable();
-      let message;
-      try { message = JSON.parse(value); } catch { continue; }
-      if (message.id === id) return message.result;
-    }
-  }
-
-  try {
-    if (!await request('initialize', {
-      clientInfo: { name: 'plain-speech', version: '0.6.3' }, capabilities: { experimentalApi: true },
-    })) throw unavailable();
-    send({ method: 'initialized' });
-    return await read(request);
-  } finally {
-    clearTimeout(timeout);
-    stop();
-  }
+  return withAppServer(signal, unavailable, read);
 }
 
 function turns(request, threadId, cursor, limit, itemsView = 'summary') {

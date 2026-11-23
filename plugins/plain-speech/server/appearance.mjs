@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { normalizePetPack } from './pet-pack.mjs';
 import { pluginDataDirectory } from './codex-env.mjs';
+import { defaultModel, normalizeModel, providers } from './models.mjs';
 
 const directory = process.env.PLAIN_SPEECH_APPEARANCE_DIR || join(pluginDataDirectory(), 'appearance');
 const path = (name) => join(directory, name);
@@ -37,6 +38,49 @@ export async function readAppearance() {
   const [theme, own, petSize] = await Promise.all(['accent.json', 'pet.json', 'pet-size.json'].map(read));
   const pet = normalizePetPack(own) ?? null;
   return { accent: validColor(theme) ? theme : null, pet, customPet: Boolean(pet), petSize: petSizes.includes(petSize) ? petSize : 'medium' };
+}
+
+function normalizeKey(key) {
+  return typeof key === 'string' && /^[!-~]{1,512}$/.test(key.trim()) ? key.trim() : undefined;
+}
+
+async function providerSetting(provider) {
+  const configuration = await read(`model-${provider}.json`);
+  const route = normalizeModel({ ...configuration, provider });
+  if (route) return { ...route, apiKey: normalizeKey(configuration.apiKey) };
+  return provider === 'codex' ? defaultModel : undefined;
+}
+
+export async function readModel() {
+  const provider = await read('model-provider.json');
+  return await providerSetting(providers.includes(provider) ? provider : 'codex') ?? defaultModel;
+}
+
+export async function readModelSettings() {
+  const [active, ...settings] = await Promise.all([readModel(), ...providers.map(providerSetting)]);
+  return {
+    provider: active.provider,
+    settings: Object.fromEntries(settings.filter(Boolean).map(({ apiKey, ...route }) =>
+      [route.provider, { ...route, hasKey: Boolean(apiKey) }])),
+  };
+}
+
+export async function updateModel({ provider, model, effort, apiKey }) {
+  const route = normalizeModel({ provider, model, effort });
+  if (!route || (provider === 'codex' && apiKey !== undefined)) return 'modelSettingError';
+  const previous = await providerSetting(provider);
+  if (apiKey === null) {
+    if (previous) {
+      const { apiKey: _removed, ...setting } = previous;
+      await save(`model-${provider}.json`, setting);
+    }
+    return;
+  }
+  const key = apiKey == null ? apiKey : normalizeKey(apiKey);
+  if (apiKey !== undefined && key === undefined) return 'modelSettingError';
+  const savedKey = key === undefined ? previous?.apiKey : key;
+  await save(`model-${provider}.json`, { ...route, ...(savedKey ? { apiKey: savedKey } : {}) });
+  await save('model-provider.json', provider);
 }
 
 export async function updateAppearance({ setting, accent, pet, petSize }) {

@@ -30,7 +30,7 @@ function getCache() {
   return database;
 }
 
-export function cacheKey(threadId, target, selection, source, version = translationVersion) {
+export function cacheKey(threadId, target, selection, source, version = translationVersion()) {
   return hashText(JSON.stringify([threadId, target?.messageId, target?.hash, selection ?? null,
     hashText(source), version]));
 }

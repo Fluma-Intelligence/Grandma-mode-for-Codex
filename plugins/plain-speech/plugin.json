@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "plain-speech",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Turn Codex replies into plain language, quick diagrams, and short follow-up answers.",
   "license": "MIT",
   "author": { "name": "Fluma.ai/an" },

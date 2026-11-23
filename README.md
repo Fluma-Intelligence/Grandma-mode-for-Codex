@@ -8,7 +8,7 @@ Grandma Mode adds a card to Codex Desktop that explains replies in everyday word
 
 ## Install
 
-You need Codex Desktop with local plugins and chat-sidebar apps, Git for a GitHub install, and Node.js **22.16 or newer**. Keep `node` and the Codex CLI (`codex`) on the PATH used by the desktop app. Sign in to the CLI with `codex login` and verify with `codex login status`. Generation uses a Codex account with access to GPT-5.6 Sol.
+You need Codex Desktop with local plugins and chat-sidebar apps, Git for a GitHub install, and Node.js **22.16 or newer**. Keep `node` and the Codex CLI (`codex`) on the PATH used by the desktop app. To generate with your Codex account, sign in with `codex login` and verify with `codex login status`. The default Codex model is GPT-6 Luna.
 
 ### From GitHub
 
@@ -44,6 +44,10 @@ The tabs share the selected reply or passage. The original starts folded. Openin
 
 The answer follows the original language and keeps material numbers, dates, scope, and uncertainty. The interface follows the system language and supports English, Simplified Chinese, Traditional Chinese, and Japanese.
 
+## Choose a model
+
+Open the gear and use **Rewrite model**. With a **Codex account**, choose GPT-6 Luna or another model listed by your signed-in CLI. For **OpenAI API**, **Google Gemini API**, or **DeepSeek API**, choose a suggested model or type a compatible model ID, enter your own API key, and click **Save**. Each provider keeps its own settings. Use **Remove key** to delete a saved key from this device.
+
 ## Themes and characters
 
 The gear opens theme and character settings. Choose a preset or a custom color, then pick a character size. There is no default character. To see the three animations, download the [Yarn Roll example pack](docs/examples/yarn-roll.grandma-pet.json) and choose **Import pack**. The character slides, draws a chart, or knits depending on the tab. The app respects reduced motion.
@@ -52,9 +56,9 @@ The bundled `plain-speech` skill describes how to use the card. Use the bundled 
 
 ## Data and usage
 
-The local MCP server reads completed replies from the chat you open or explicitly link. A generation click forwards the selected text to your signed-in Codex CLI. Follow-ups may include the first short answer, and **Rephrase** may include the previous answer. GPT-5.6 Sol runs at medium effort and uses your Codex allowance. Grandma Mode has no plugin-specific key, separate backend, or telemetry endpoint.
+The local MCP server reads completed replies from the chat you open or explicitly link. A generation click sends the selected text to the provider you saved. Follow-ups may include the first short answer, and **Rephrase** may include the previous answer. Codex uses your Codex allowance. API providers use your own key and may bill that account. Grandma Mode makes direct calls to the selected provider and has no separate backend or telemetry endpoint.
 
-Grandma Mode stores appearance settings and up to 256 cached results in `$CODEX_HOME/grandma-mode/`. The default path is `~/.codex/grandma-mode/` (`%USERPROFILE%/.codex/grandma-mode/` on Windows). Cached rewrites are stored in an unencrypted SQLite file. You can remove the plugin data folder after closing the app to clear those settings and results. Codex chat history is managed by Codex.
+Grandma Mode stores local settings and up to 256 cached results in `$CODEX_HOME/grandma-mode/`. The default path is `~/.codex/grandma-mode/` (`%USERPROFILE%/.codex/grandma-mode/` on Windows). API keys are saved in local settings files, and cached rewrites are stored in SQLite. These files are unencrypted. After closing the app, removing the plugin data folder clears its settings, keys, and results. Codex chat history is managed by Codex.
 
 ## Test locally
 

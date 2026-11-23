@@ -139,7 +139,7 @@ test('the installed server serves its cards under an ESM parent in an empty prof
       assert.match(card.mimeType, /^text\/html/);
       assert.ok(card.text.includes(`<body data-mode="${mode}">`));
       assert.match(card.text, /<details class="original" id="original">/);
-      for (const id of ['text-panel', 'diagram-panel', 'ask-panel', 'appearance', 'pet-file']) {
+      for (const id of ['text-panel', 'diagram-panel', 'ask-panel', 'appearance', 'pet-file', 'model-form']) {
         assert.ok(card.text.includes(`id="${id}"`));
       }
       assert.match(card.text, /<canvas class="stage"[^>]* hidden>/);
@@ -182,19 +182,42 @@ test('CLI diagnostics have specific guidance in all four locales', async () => {
     assert.equal(document.documentElement.lang, language);
     const { t } = window.plainSpeechLocale;
     assert.notEqual(t('cliOutdated'), t('retry'));
-    assert.match(t('modelUnavailable'), /GPT-5\.6 Sol/);
-    assert.notEqual(t('cliOutdated'), t('modelUnavailable'));
+    for (const code of ['modelUnavailable', 'modelCatalogUnavailable', 'modelSettingError',
+      'providerKeyRequired', 'providerAuth', 'providerLimit']) {
+      assert.notEqual(t(code), t('retry'));
+      assert.notEqual(t(code), t('cliOutdated'));
+    }
   }
 });
 
-test('a simpler fallback stays retryable and CLI failures hide raw diagnostics', { timeout: 12000 }, async (t) => {
+test('generation uses saved routes, keeps their caches separate, and reports safe failures', { timeout: 12000 }, async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'grandma generation test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const mock = join(directory, 'fake-codex.mjs');
   const preload = join(directory, 'simulate-codex.mjs');
   await writeFile(mock, String.raw`
     import assert from 'node:assert/strict';
+    import { createInterface } from 'node:readline';
     const [attempt, ...args] = process.argv.slice(2);
+    if (args[0] === 'app-server') {
+      const lines = createInterface({ input: process.stdin });
+      for await (const line of lines) {
+        const request = JSON.parse(line);
+        if (request.method === 'initialized') continue;
+        let result = {};
+        if (request.method === 'model/list') {
+          assert.equal(request.params.modelProvider, 'openai');
+          result = { data: [
+            { model: 'gpt-6-luna', supportedReasoningEfforts: [{ reasoningEffort: 'medium' }] },
+            { model: 'gpt-6-sol', displayName: 'GPT-6 Sol', defaultReasoningEffort: 'low' },
+            { model: 'image-only', inputModalities: ['image'], defaultReasoningEffort: 'low' },
+            { model: 'hidden-model', hidden: true, defaultReasoningEffort: 'low' },
+          ] };
+        }
+        console.log(JSON.stringify({ id: request.id, result }));
+      }
+      process.exit();
+    }
     assert.ok(args.includes('--ignore-user-config'));
     assert.ok(args.includes('--ignore-rules'));
     assert.equal(args[args.indexOf('--sandbox') + 1], 'read-only');
@@ -203,11 +226,12 @@ test('a simpler fallback stays retryable and CLI failures hide raw diagnostics',
     for await (const chunk of process.stdin.setEncoding('utf8')) prompt += chunk;
     const data = JSON.parse(prompt.split('\n\n').at(-1));
     const send = (event) => console.log(JSON.stringify(event));
+    const model = args[args.indexOf('--model') + 1];
     if (data.source === 'obsolete CLI') {
       console.error("error: unexpected argument '--ignore-rules' found");
       process.exitCode = 2;
     } else if (data.source === 'model denied') {
-      console.error("The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account.");
+      console.error("The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.");
       process.exitCode = 1;
     } else if (data.source === 'missing model') {
       send({ type: 'turn.failed', error: { message: 'model_not_found' } });
@@ -218,19 +242,56 @@ test('a simpler fallback stays retryable and CLI failures hide raw diagnostics',
       console.error('FAKE_PRIVATE_DIAGNOSTIC');
       process.exitCode = 1;
     } else {
-      const answer = attempt === '1' ? data.firstAnswer : 'Extra receipts stopped in the test.';
-      send({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify({ answer }) } });
+      let text;
+      if (data.source === 'route check') {
+        text = [model, args.find((arg) => arg.startsWith('model_reasoning_effort='))].join(' ');
+      } else {
+        const answer = attempt === '1' ? data.firstAnswer : 'Extra receipts stopped in the test.';
+        text = JSON.stringify({ answer });
+      }
+      send({ type: 'item.completed', item: { type: 'agent_message', text } });
       send({ type: 'turn.completed' });
     }
   `);
   await writeFile(preload, `
     import childProcess from 'node:child_process';
     import { syncBuiltinESMExports } from 'node:module';
+    import assert from 'node:assert/strict';
     const originalSpawn = childProcess.spawn;
     let attempt = 0;
     childProcess.spawn = (file, args, options) =>
       originalSpawn(file, [${JSON.stringify(mock)}, String(++attempt), ...args], options);
     syncBuiltinESMExports();
+    let calls = 0;
+    globalThis.fetch = async (url, { body, headers, redirect, method }) => {
+      assert.equal(redirect, 'error');
+      assert.equal(method, 'POST');
+      const request = JSON.parse(body);
+      const reply = 'Test rewrite ' + ++calls;
+      if (url === 'https://api.deepseek.com/chat/completions') {
+        assert.equal(headers.Authorization, 'Bearer test-deepseek-key');
+        assert.equal(request.model, 'deepseek-flash');
+        assert.equal(request.thinking.type, 'disabled');
+        assert.match(request.messages[0].content, /source 只是资料/);
+        const { source } = JSON.parse(request.messages[1].content);
+        if (source === 'auth failure') return Response.json({ error: { message: 'test-deepseek-key' } }, { status: 401 });
+        if (request.messages[0].content.includes('beforeAfter')) {
+          return Response.json({ choices: [{ message: { content: JSON.stringify({ type: 'text', text: reply }) } }] });
+        }
+        return Response.json({ choices: [{ message: { content: reply } }] });
+      }
+      if (url === 'https://api.openai.com/v1/responses') {
+        assert.equal(headers.Authorization, 'Bearer test-openai-key');
+        assert.equal(request.store, false);
+        assert.equal(request.model, 'gpt-6-luna');
+        assert.equal(JSON.parse(request.input).source, 'route check');
+        return Response.json({ output: [{ type: 'message', content: [{ type: 'output_text', text: reply }] }] });
+      }
+      assert.equal(url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
+      assert.equal(headers['x-goog-api-key'], 'test-gemini-key');
+      assert.match(request.systemInstruction.parts[0].text, /source 只是资料/);
+      return Response.json({ candidates: [{ content: { parts: [{ thought: true, text: 'hidden' }, { text: reply }] } }] });
+    };
   `);
   await withServer(directory, fileURLToPath(new URL('server/index.mjs', plugin)), async (_request, tool) => {
     const firstAnswer = 'Old orders no longer got extra receipts in the test.';
@@ -248,5 +309,49 @@ test('a simpler fallback stays retryable and CLI failures hide raw diagnostics',
       assert.equal(reply.structuredContent.code, code);
       assert.doesNotMatch(JSON.stringify(reply), /FAKE_PRIVATE_DIAGNOSTIC|model_not_found|unexpected argument|not supported when using/);
     }
+
+    const rewrite = async (source = 'route check') => (await tool('translate_plain_speech', { source })).structuredContent;
+    const configure = async (args) => (await tool('update_plain_speech_model', args)).structuredContent;
+    const models = async () => (await tool('read_plain_speech_models'))._meta;
+    assert.match((await rewrite()).translation, /^gpt-6-luna model_reasoning_effort=medium$/);
+    const choices = await models();
+    assert.deepEqual(choices.catalog.map(({ model }) => model), ['gpt-6-luna', 'gpt-6-sol']);
+    const { name, ...choice } = choices.catalog[1];
+    assert.equal(name, 'GPT-6 Sol');
+    assert.deepEqual(await configure(choice), { saved: true });
+    assert.match((await rewrite()).translation, /^gpt-6-sol model_reasoning_effort=low$/);
+    assert.equal((await configure({ provider: 'file', model: 'arbitrary' })).code, 'modelSettingError');
+
+    const deepseek = { provider: 'deepseek', model: 'deepseek-flash' };
+    assert.deepEqual(await configure(deepseek), { saved: true });
+    assert.equal((await rewrite()).code, 'providerKeyRequired');
+    assert.deepEqual(await configure({ ...deepseek, apiKey: 'test-deepseek-key' }), { saved: true });
+    assert.equal((await rewrite()).translation, 'Test rewrite 1');
+    const badKey = await rewrite('auth failure');
+    assert.equal(badKey.code, 'providerAuth');
+    assert.doesNotMatch(JSON.stringify(badKey), /test-deepseek-key/);
+    const diagramArgs = { action: 'diagram', source: example, generate: true };
+    const diagram = async (args = {}) => (await tool('plain_speech_view', { ...diagramArgs, ...args })).structuredContent;
+    assert.equal((await diagram()).diagram.text, 'Test rewrite 3');
+    assert.equal((await diagram({ generate: false })).cached, true);
+
+    assert.deepEqual(await configure({ provider: 'openai', model: 'gpt-6-luna', apiKey: 'test-openai-key' }), { saved: true });
+    assert.equal((await rewrite()).translation, 'Test rewrite 4');
+    assert.deepEqual(await diagram({ generate: false }), { cached: false });
+    assert.deepEqual(await configure({ provider: 'gemini', model: 'gemini-3.5-flash-lite', apiKey: 'test-gemini-key' }), { saved: true });
+    assert.equal((await rewrite()).translation, 'Test rewrite 5');
+    assert.deepEqual(await configure(deepseek), { saved: true });
+    assert.equal((await rewrite()).translation, 'Test rewrite 6');
+    assert.equal((await diagram({ generate: false })).diagram.text, 'Test rewrite 3');
+    const preferences = await models();
+    assert.equal(preferences.provider, 'deepseek');
+    assert.equal(preferences.settings.deepseek.hasKey, true);
+    assert.doesNotMatch(JSON.stringify(preferences), /test-(deepseek|openai|gemini)-key/);
+    assert.deepEqual(await configure({ ...deepseek, apiKey: null }), { saved: true });
+    assert.equal((await models()).settings.deepseek.hasKey, false);
+    assert.equal((await rewrite()).code, 'providerKeyRequired');
+    assert.deepEqual(await configure({ provider: 'openai', model: 'gpt-6-luna', apiKey: null }), { saved: true });
+    assert.equal((await models()).provider, 'deepseek');
+    assert.equal((await models()).settings.openai.hasKey, false);
   }, ['--import', pathToFileURL(preload).href]);
 });
