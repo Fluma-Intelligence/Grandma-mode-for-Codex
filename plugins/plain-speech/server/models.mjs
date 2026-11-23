@@ -2,23 +2,39 @@ import { withAppServer } from './app-server.mjs';
 import { speechError } from './errors.mjs';
 
 export const defaultModel = Object.freeze({ provider: 'codex', model: 'gpt-6-luna', effort: 'medium' });
-export const providerModels = Object.freeze({
-  codex: [defaultModel.model],
-  openai: ['gpt-6-luna', 'gpt-6-sol'],
-  gemini: ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash'],
-  deepseek: ['deepseek-flash', 'deepseek-v4-pro'],
-});
-export const providers = Object.keys(providerModels);
-export const modelPattern = '^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,119}$';
+export const providers = ['codex', 'compatible', 'openai', 'gemini'];
+export const modelPattern = '^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$';
 const modelId = new RegExp(modelPattern);
 export const efforts = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 const unavailable = () => speechError('modelCatalogUnavailable', '暂时读不到 Codex 的模型列表。');
 
+const operation = { compatible: /\/chat\/completions$/, openai: /\/responses$/, gemini: /\/models\/[^/]+:generateContent$/ };
+
+export function normalizeEndpoint(provider, baseURL) {
+  if (!Object.hasOwn(operation, provider) || typeof baseURL !== 'string' || baseURL.length > 512) return;
+  let url;
+  try { url = new URL(baseURL.trim()); } catch { return; }
+  if (url.username || url.password || url.search || url.hash) return;
+  if (url.protocol !== 'https:' && !localEndpoint(url)) return;
+  const path = url.pathname.replace(/\/+$/, '').replace(operation[provider], '').replace(/\/models$/, '');
+  return url.origin + path;
+}
+
+export function localEndpoint(url) {
+  return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+}
+
 export function normalizeModel(setting) {
-  const { provider, model, effort } = setting ?? {};
+  const { provider, model, effort, baseURL } = setting ?? {};
   if (!providers.includes(provider) || typeof model !== 'string' || !modelId.test(model)) return;
   if (provider === 'codex' && !efforts.includes(effort)) return;
-  return provider === 'codex' ? { provider, model, effort } : { provider, model };
+  if (provider === 'codex') return { provider, model, effort };
+  const endpoint = normalizeEndpoint(provider, baseURL);
+  if (endpoint) return { provider, model, baseURL: endpoint };
+}
+
+export function isModelId(model) {
+  return typeof model === 'string' && modelId.test(model);
 }
 
 export function listModels(signal) {

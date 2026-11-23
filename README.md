@@ -46,7 +46,9 @@ The answer follows the original language and keeps material numbers, dates, scop
 
 ## Choose a model
 
-Open the gear and use **Rewrite model**. With a **Codex account**, choose GPT-6 Luna or another model listed by your signed-in CLI. For **OpenAI API**, **Google Gemini API**, or **DeepSeek API**, choose a suggested model or type a compatible model ID, enter your own API key, and click **Save**. Each provider keeps its own settings. Use **Remove key** to delete a saved key from this device.
+Open the gear and use **Rewrite model**. By default, Grandma Mode uses your local Codex subscription and GPT-6 Luna. You can choose another model from your signed-in CLI.
+
+Choose **Custom API** to reveal the API settings. Select an API format, enter the base URL and key, then click **Load models**. Pick a model from the returned list and click **Save**. Use **OpenAI-compatible API** for services such as DeepSeek, OpenRouter, and local servers that support Chat Completions. Remote URLs use HTTPS. HTTP is also supported on localhost, where a key is optional. Saved keys are tied to the URL and API format. **Remove key** deletes the saved key from this device.
 
 ## Themes and characters
 

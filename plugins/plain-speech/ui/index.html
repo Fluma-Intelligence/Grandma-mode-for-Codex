@@ -138,19 +138,30 @@
           <form class="model-form" id="model-form">
             <label for="model-provider" data-i18n="modelProvider">供应商</label>
             <select id="model-provider" disabled>
-              <option value="codex" data-i18n="codexProvider">Codex 账号</option>
-              <option value="openai">OpenAI API</option>
-              <option value="gemini">Google Gemini API</option>
-              <option value="deepseek">DeepSeek API</option>
+              <option value="codex" data-i18n="codexProvider">本机 Codex 订阅</option>
+              <option value="api" data-i18n="customProvider">自定义 API</option>
             </select>
             <label id="model-option-label" for="model-option" data-i18n="modelName">模型</label>
             <select id="model-option" disabled><option value="gpt-6-luna">GPT-6 Luna</option></select>
-            <label id="api-model-label" for="api-model" data-i18n="modelName" hidden>模型</label>
-            <input id="api-model" list="api-model-options" spellcheck="false" maxlength="120" disabled hidden>
-            <datalist id="api-model-options"></datalist>
-            <label id="provider-key-label" for="provider-key" hidden>API Key</label>
-            <input id="provider-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" disabled hidden>
-            <p class="model-hint" id="model-hint" data-i18n="modelDataHint" hidden></p>
+            <div class="api-fields" id="api-fields" hidden>
+              <label for="api-protocol" data-i18n="apiProtocol">接口类型</label>
+              <select id="api-protocol" disabled>
+                <option value="compatible" data-i18n="compatibleProvider">OpenAI 兼容 API</option>
+                <option value="openai">OpenAI Responses API</option>
+                <option value="gemini">Gemini API</option>
+              </select>
+              <label for="api-endpoint" data-i18n="apiEndpoint">接口地址</label>
+              <input id="api-endpoint" type="url" maxlength="512" spellcheck="false" autocomplete="off" disabled>
+              <label for="provider-key">API Key</label>
+              <input id="provider-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" disabled>
+              <label for="api-model" data-i18n="modelName">模型</label>
+              <div class="api-model-row">
+                <input id="api-model" list="api-model-options" spellcheck="false" maxlength="160" disabled>
+                <datalist id="api-model-options"></datalist>
+                <button class="text-action" id="list-models" type="button" data-i18n="loadModels" disabled>读取模型</button>
+              </div>
+              <p class="model-hint" data-i18n="modelDataHint"></p>
+            </div>
             <p class="model-hint" id="model-status" role="status" hidden></p>
             <div class="model-actions">
               <button class="quiet-action" id="remove-provider-key" type="button" data-i18n="removeProviderKey" disabled hidden>移除 Key</button>

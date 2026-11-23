@@ -112,12 +112,17 @@
     const provider = get('model-provider');
     const codexModel = get('model-option');
     const apiModel = get('api-model');
+    const protocol = get('api-protocol');
+    const endpoint = get('api-endpoint');
+    const loadModels = get('list-models');
+    const apiOptions = get('api-model-options');
     const key = get('provider-key');
     const saveModel = get('save-model');
     const removeKey = get('remove-provider-key');
     const modelStatus = get('model-status');
     let modelData;
     let modelLoading = false;
+    let apiLoading = false;
     let modelSaving = false;
     let modelLocked = false;
 
@@ -127,46 +132,47 @@
     }
 
     function lockModels() {
-      const blocked = !modelData || modelLocked || modelLoading || modelSaving;
+      const blocked = !modelData || modelLocked || modelLoading || modelSaving || apiLoading;
       saveModel.disabled = removeKey.disabled = provider.disabled = codexModel.disabled = blocked;
-      apiModel.disabled = key.disabled = blocked || provider.value === 'codex';
+      apiModel.disabled = key.disabled = protocol.disabled = endpoint.disabled = loadModels.disabled =
+        blocked || provider.value === 'codex';
       back.disabled = modelSaving;
     }
 
     function paintKeyHint() {
-      key.placeholder = t(modelData?.settings[provider.value]?.hasKey ? 'keySaved' : 'enterKey');
+      const saved = modelData?.settings[protocol.value];
+      const hasKey = saved?.hasKey && endpoint.value.trim().replace(/\/$/, '') === saved.baseURL;
+      key.placeholder = t(hasKey ? 'keySaved' : 'enterKey');
+      removeKey.hidden = provider.value !== 'api' || !hasKey;
     }
 
     function renderModel() {
-      const name = provider.value;
+      const external = provider.value === 'api';
+      const name = external ? protocol.value : 'codex';
       const stored = modelData.settings[name];
-      const presets = modelData.providerModels[name];
-      const external = name !== 'codex';
-      for (const id of ['api-model-label', 'api-model', 'provider-key-label', 'provider-key', 'model-hint']) {
-        get(id).hidden = !external;
-      }
+      get('api-fields').hidden = !external;
       codexModel.hidden = get('model-option-label').hidden = external;
-      removeKey.hidden = !external || !stored?.hasKey;
       key.value = '';
-      key.required = external && !stored?.hasKey;
-      apiModel.required = external;
-      paintKeyHint();
+      apiModel.required = endpoint.required = external;
       if (external) {
-        apiModel.value = stored?.model ?? presets[0];
-        get('api-model-options').replaceChildren(...presets.map((model) => new Option(model, model)));
+        endpoint.value = stored?.baseURL ?? '';
+        endpoint.placeholder = { compatible: 'https://api.deepseek.com', openai: 'https://api.openai.com/v1',
+          gemini: 'https://generativelanguage.googleapis.com/v1beta' }[name];
+        apiModel.value = stored?.model ?? '';
+        apiOptions.replaceChildren();
       } else {
         const available = new Map((modelData.catalog ?? []).map((item) => [item.model, item]));
-        for (const model of presets) {
-          if (!available.has(model)) available.set(model, { model, effort: 'medium', name: 'GPT-6 Luna' });
-        }
+        const fallback = modelData.defaultModel;
+        if (!available.has(fallback.model)) available.set(fallback.model, { ...fallback, name: 'GPT-6 Luna' });
         if (stored && !available.has(stored.model)) available.set(stored.model, stored);
         codexModel.replaceChildren(...[...available.values()].map(({ model, name, effort }) => {
           const item = new Option(name ?? model, model);
           item.dataset.effort = effort;
           return item;
         }));
-        codexModel.value = stored?.model ?? presets[0];
+        codexModel.value = stored?.model ?? fallback.model;
       }
+      paintKeyHint();
       showModelStatus(!external && !modelData.catalog ? 'modelCatalogUnavailable' : null);
       lockModels();
     }
@@ -178,11 +184,12 @@
       showModelStatus('modelLoading');
       try {
         const { _meta: data } = await request('read_plain_speech_models', {});
-        if (!data?.settings || !data.providerModels) throw new Error('modelSettingError');
+        if (!data?.settings || !data.defaultModel) throw new Error('modelSettingError');
         const activeRoute = (saved) => JSON.stringify([saved.provider, saved.settings[saved.provider]]);
         const changed = modelData && activeRoute(modelData) !== activeRoute(data);
         modelData = data;
-        provider.value = data.provider;
+        provider.value = data.provider === 'codex' ? 'codex' : 'api';
+        if (data.provider !== 'codex') protocol.value = data.provider;
         renderModel();
         if (changed) modelChanged();
       } catch {
@@ -193,10 +200,38 @@
       }
     }
 
+    async function readApiModels() {
+      if (loadModels.disabled || !endpoint.reportValidity()) return;
+      apiLoading = true;
+      lockModels();
+      showModelStatus('modelLoading');
+      try {
+        const apiKey = key.value.trim();
+        const { _meta } = await request('list_plain_speech_api_models', {
+          provider: protocol.value, baseURL: endpoint.value.trim(), ...(apiKey ? { apiKey } : {}),
+        });
+        if (!Array.isArray(_meta?.catalog)) throw new Error('apiCatalogUnavailable');
+        const options = document.createDocumentFragment();
+        for (const { model, name } of _meta.catalog) {
+          const option = new Option(name, model);
+          options.append(option);
+        }
+        apiOptions.replaceChildren(options);
+        if (!apiModel.value && _meta.catalog.length) apiModel.value = _meta.catalog[0].model;
+        showModelStatus(_meta.catalog.length ? 'modelsLoaded' : 'noApiModels');
+      } catch (error) {
+        apiOptions.replaceChildren();
+        showModelStatus(error.message);
+      } finally {
+        apiLoading = false;
+        lockModels();
+      }
+    }
+
     async function saveModelChoice(remove = false) {
       if (saveModel.disabled) return;
-      const selected = provider.value;
-      const external = selected !== 'codex';
+      const external = provider.value === 'api';
+      const selected = external ? protocol.value : 'codex';
       const model = remove ? modelData.settings[selected].model : external ? apiModel.value.trim() : codexModel.value;
       const effort = external ? undefined : codexModel.selectedOptions[0].dataset.effort;
       const apiKey = external ? (remove ? null : key.value.trim() || undefined) : undefined;
@@ -204,12 +239,12 @@
       lockModels();
       showModelStatus(null);
       try {
-        await request('update_plain_speech_model', {
+        const { _meta: saved } = await request('update_plain_speech_model', {
           provider: selected, model, ...(effort === undefined ? {} : { effort }), ...(apiKey === undefined ? {} : { apiKey }),
+          ...(external ? { baseURL: remove ? modelData.settings[selected].baseURL : endpoint.value.trim() } : {}),
         });
-        const hasKey = apiKey === undefined ? Boolean(modelData.settings[selected]?.hasKey) : Boolean(apiKey);
-        modelData.settings[selected] = { provider: selected, model, effort, hasKey };
-        if (!remove) modelData.provider = selected;
+        if (!saved?.settings) throw new Error('modelSettingError');
+        modelData = { ...modelData, ...saved };
         renderModel();
         if (modelData.provider === selected) modelChanged();
         showModelStatus('appearanceSaved');
@@ -223,6 +258,13 @@
       }
     }
     provider.addEventListener('change', renderModel);
+    protocol.addEventListener('change', renderModel);
+    for (const field of [endpoint, key]) field.addEventListener('input', () => {
+      apiOptions.replaceChildren();
+      paintKeyHint();
+      showModelStatus(null);
+    });
+    loadModels.addEventListener('click', readApiModels);
     modelForm.addEventListener('submit', (event) => {
       event.preventDefault();
       saveModelChoice();
