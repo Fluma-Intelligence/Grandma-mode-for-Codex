@@ -130,9 +130,34 @@
             <path d="m14 6-6 6 6 6"/>
           </svg>
         </button>
-        <h2 id="appearance-title" data-i18n="appearance">外观设置</h2>
+        <h2 id="appearance-title" data-i18n="appearance">设置</h2>
       </header>
       <div class="appearance">
+        <section class="appearance-group" aria-labelledby="model-heading">
+          <h3 id="model-heading" data-i18n="modelSection">翻译模型</h3>
+          <form class="model-form" id="model-form">
+            <label for="model-provider" data-i18n="modelProvider">供应商</label>
+            <select id="model-provider" disabled>
+              <option value="codex" data-i18n="codexProvider">Codex 账号</option>
+              <option value="openai">OpenAI API</option>
+              <option value="gemini">Google Gemini API</option>
+              <option value="deepseek">DeepSeek API</option>
+            </select>
+            <label id="model-option-label" for="model-option" data-i18n="modelName">模型</label>
+            <select id="model-option" disabled><option value="gpt-6-luna">GPT-6 Luna</option></select>
+            <label id="api-model-label" for="api-model" data-i18n="modelName" hidden>模型</label>
+            <input id="api-model" list="api-model-options" spellcheck="false" maxlength="120" disabled hidden>
+            <datalist id="api-model-options"></datalist>
+            <label id="provider-key-label" for="provider-key" hidden>API Key</label>
+            <input id="provider-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" disabled hidden>
+            <p class="model-hint" id="model-hint" data-i18n="modelDataHint" hidden></p>
+            <p class="model-hint" id="model-status" role="status" hidden></p>
+            <div class="model-actions">
+              <button class="quiet-action" id="remove-provider-key" type="button" data-i18n="removeProviderKey" disabled hidden>移除 Key</button>
+              <button class="text-action" id="save-model" type="submit" data-i18n="saveModel" disabled>保存</button>
+            </div>
+          </form>
+        </section>
         <section class="appearance-group" aria-labelledby="accent-heading">
           <h3 id="accent-heading" data-i18n="accentColor">主题色</h3>
           <div class="swatch-grid" id="swatches" role="radiogroup" aria-labelledby="accent-heading">

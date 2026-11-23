@@ -88,7 +88,7 @@
     };
   }
 
-  window.setupPlainSpeechAppearance = (request) => {
+  window.setupPlainSpeechAppearance = (request, modelChanged) => {
     const toggle = get('settings-toggle');
     const back = get('settings-back');
     const card = toggle.closest('.card');
@@ -108,6 +108,126 @@
     let savedColor = null;
     let savedSize = 'medium';
     let pending = false;
+    const modelForm = get('model-form');
+    const provider = get('model-provider');
+    const codexModel = get('model-option');
+    const apiModel = get('api-model');
+    const key = get('provider-key');
+    const saveModel = get('save-model');
+    const removeKey = get('remove-provider-key');
+    const modelStatus = get('model-status');
+    let modelData;
+    let modelLoading = false;
+    let modelSaving = false;
+    let modelLocked = false;
+
+    function showModelStatus(message) {
+      label(modelStatus, message);
+      modelStatus.hidden = !message;
+    }
+
+    function lockModels() {
+      const blocked = !modelData || modelLocked || modelLoading || modelSaving;
+      saveModel.disabled = removeKey.disabled = provider.disabled = codexModel.disabled = blocked;
+      apiModel.disabled = key.disabled = blocked || provider.value === 'codex';
+      back.disabled = modelSaving;
+    }
+
+    function paintKeyHint() {
+      key.placeholder = t(modelData?.settings[provider.value]?.hasKey ? 'keySaved' : 'enterKey');
+    }
+
+    function renderModel() {
+      const name = provider.value;
+      const stored = modelData.settings[name];
+      const presets = modelData.providerModels[name];
+      const external = name !== 'codex';
+      for (const id of ['api-model-label', 'api-model', 'provider-key-label', 'provider-key', 'model-hint']) {
+        get(id).hidden = !external;
+      }
+      codexModel.hidden = get('model-option-label').hidden = external;
+      removeKey.hidden = !external || !stored?.hasKey;
+      key.value = '';
+      key.required = external && !stored?.hasKey;
+      apiModel.required = external;
+      paintKeyHint();
+      if (external) {
+        apiModel.value = stored?.model ?? presets[0];
+        get('api-model-options').replaceChildren(...presets.map((model) => new Option(model, model)));
+      } else {
+        const available = new Map((modelData.catalog ?? []).map((item) => [item.model, item]));
+        for (const model of presets) {
+          if (!available.has(model)) available.set(model, { model, effort: 'medium', name: 'GPT-6 Luna' });
+        }
+        if (stored && !available.has(stored.model)) available.set(stored.model, stored);
+        codexModel.replaceChildren(...[...available.values()].map(({ model, name, effort }) => {
+          const item = new Option(name ?? model, model);
+          item.dataset.effort = effort;
+          return item;
+        }));
+        codexModel.value = stored?.model ?? presets[0];
+      }
+      showModelStatus(!external && !modelData.catalog ? 'modelCatalogUnavailable' : null);
+      lockModels();
+    }
+
+    async function readModels() {
+      if (!request || modelLoading || modelSaving) return;
+      modelLoading = true;
+      lockModels();
+      showModelStatus('modelLoading');
+      try {
+        const { _meta: data } = await request('read_plain_speech_models', {});
+        if (!data?.settings || !data.providerModels) throw new Error('modelSettingError');
+        const activeRoute = (saved) => JSON.stringify([saved.provider, saved.settings[saved.provider]]);
+        const changed = modelData && activeRoute(modelData) !== activeRoute(data);
+        modelData = data;
+        provider.value = data.provider;
+        renderModel();
+        if (changed) modelChanged();
+      } catch {
+        showModelStatus('modelSettingError');
+      } finally {
+        modelLoading = false;
+        lockModels();
+      }
+    }
+
+    async function saveModelChoice(remove = false) {
+      if (saveModel.disabled) return;
+      const selected = provider.value;
+      const external = selected !== 'codex';
+      const model = remove ? modelData.settings[selected].model : external ? apiModel.value.trim() : codexModel.value;
+      const effort = external ? undefined : codexModel.selectedOptions[0].dataset.effort;
+      const apiKey = external ? (remove ? null : key.value.trim() || undefined) : undefined;
+      modelSaving = true;
+      lockModels();
+      showModelStatus(null);
+      try {
+        await request('update_plain_speech_model', {
+          provider: selected, model, ...(effort === undefined ? {} : { effort }), ...(apiKey === undefined ? {} : { apiKey }),
+        });
+        const hasKey = apiKey === undefined ? Boolean(modelData.settings[selected]?.hasKey) : Boolean(apiKey);
+        modelData.settings[selected] = { provider: selected, model, effort, hasKey };
+        if (!remove) modelData.provider = selected;
+        renderModel();
+        if (modelData.provider === selected) modelChanged();
+        showModelStatus('appearanceSaved');
+      } catch {
+        key.value = '';
+        showModelStatus('modelSettingError');
+      } finally {
+        modelSaving = false;
+        lockModels();
+        if (!panel.hidden) saveModel.focus();
+      }
+    }
+    provider.addEventListener('change', renderModel);
+    modelForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveModelChoice();
+    });
+    removeKey.addEventListener('click', () => saveModelChoice(true));
 
     const scheme = () => document.documentElement.dataset.scheme === 'dark' ? 'dark' : 'light';
 
@@ -249,16 +369,19 @@
     }
 
     function setOpen(open) {
+      if (!open && modelSaving) return;
       if (open) {
         const height = workspace.offsetHeight;
         // Preserve the opening height while allowing the form to reflow.
         panel.style.minBlockSize = `max(var(--idle-height), ${height}px)`;
         workspace.hidden = true;
         panel.hidden = false;
+        readModels();
       } else {
         panel.style.minBlockSize = '';
         panel.hidden = true;
         workspace.hidden = false;
+        key.value = '';
       }
       toggle.setAttribute('aria-expanded', String(open));
       (open ? back : toggle).focus();
@@ -323,7 +446,12 @@
     }));
     window.addEventListener('schemechange', renderColor);
     window.addEventListener('languagechange', paintSwatches);
+    window.addEventListener('languagechange', paintKeyHint);
     if (request) perform(readAppearance, false);
     else renderColor();
+    return (locked) => {
+      modelLocked = locked;
+      lockModels();
+    };
   };
 })();

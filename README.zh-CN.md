@@ -8,7 +8,7 @@
 
 ## 安装
 
-需要支持本地插件和聊天侧栏应用的 Codex Desktop、Node.js **22.16 或更新版本**，从 GitHub 安装还需要 Git。桌面应用得能通过 PATH 找到 `node` 和 `codex`。先运行 `codex login` 登录，再用 `codex login status` 检查。生成内容需要账号能使用 GPT-5.6 Sol。
+需要支持本地插件和聊天侧栏应用的 Codex Desktop、Node.js **22.16 或更新版本**，从 GitHub 安装还需要 Git。桌面应用得能通过 PATH 找到 `node` 和 `codex`。使用 Codex 账号生成内容时，运行 `codex login` 登录，再用 `codex login status` 检查。Codex 默认使用 GPT-6 Luna。
 
 ### 从 GitHub 安装
 
@@ -44,6 +44,10 @@ codex plugin add plain-speech@grandma-mode
 
 大白话跟随原文语言，保留重要数字、日期、适用范围和不确定性。界面跟随系统语言，支持简体中文、繁体中文、英语和日语。
 
+## 选择模型
+
+点齿轮打开「翻译模型」。选「Codex 账号」时，可以用默认的 GPT-6 Luna，也可以从已登录的 CLI 列表里选其他模型。选 OpenAI API、Google Gemini API 或 DeepSeek API 时，可以用建议模型，也可以填兼容的模型 ID。填入自己的 API Key 再点「保存」。各家供应商的设置分别保存。点「移除 Key」可以从这台设备删除已保存的 Key。
+
 ## 主题和角色
 
 点齿轮可以选预设主题、自定义颜色和角色大小。默认不加载角色。想看三段动画，可以下载[毛线团示例角色包](docs/examples/yarn-roll.grandma-pet.json)，再点「导入角色包」。切换标签时，角色会滑跪、画图或织毛衣。动画遵循系统的减少动态效果设置。
@@ -52,9 +56,9 @@ codex plugin add plain-speech@grandma-mode
 
 ## 数据和用量
 
-本地 MCP 服务读取你打开或明确链接的聊天里已写完的回复。点生成后，插件才把选中的文字交给已登录的 Codex CLI。追问时可能同时用第一版大白话，「换种说法」会用上一版。生成使用 GPT-5.6 Sol medium，消耗你的 Codex 用量。插件没有单独的 API Key、后端或遥测端点。
+本地 MCP 服务读取你打开或明确链接的聊天里已写完的回复。点生成后，插件才把选中的文字交给你保存的供应商。追问时可能同时用第一版大白话，「换种说法」会用上一版。用 Codex 账号时消耗 Codex 用量。用 API 时会使用你的 Key，费用由该供应商计入你的账号。插件直接联系所选供应商，没有单独的后端或遥测端点。
 
-外观设置和最多 256 份结果缓存在 `$CODEX_HOME/grandma-mode/`，默认是 `~/.codex/grandma-mode/`，Windows 默认是 `%USERPROFILE%/.codex/grandma-mode/`。SQLite 里的改写结果没有加密。关闭应用后可以删除这个插件数据目录清除缓存及设置。聊天历史由 Codex 管理。
+本机设置和最多 256 份结果缓存在 `$CODEX_HOME/grandma-mode/`，默认是 `~/.codex/grandma-mode/`，Windows 默认是 `%USERPROFILE%/.codex/grandma-mode/`。API Key 保存在本机设置文件里，改写结果存在 SQLite 里，这些文件没有加密。关闭应用后可以删除插件数据目录来清除设置、Key 和结果。聊天历史由 Codex 管理。
 
 ## 本地测试
 

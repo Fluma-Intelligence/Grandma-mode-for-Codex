@@ -23,8 +23,8 @@ const instructions = {
 
 export const viewActions = Object.keys(instructions);
 
-export function viewVersion(action, firstAnswer) {
-  const parts = [translationVersion, rules, instructions[action]];
+export function viewVersion(action, firstAnswer, route) {
+  const parts = [translationVersion(route), rules, instructions[action]];
   // Earlier builds could cache the first answer as if it were a simpler answer.
   if (action === 'simpler') parts.push('shorter-only-v1', hashText(firstAnswer ?? ''));
   return hashText(JSON.stringify(parts));
@@ -81,10 +81,10 @@ export function decodeDiagram(answer) {
   }
 }
 
-export async function generateView(action, source, signal, firstAnswer) {
+export async function generateView(action, source, signal, firstAnswer, route) {
   const data = action === 'simpler' ? { firstAnswer } : { source };
   const instruction = action === 'simpler' ? instructions.simpler : `${rules}\n\n${instructions[action]}`;
-  const answer = await runPrompt(`${instruction}\n\n${JSON.stringify(data)}`, signal);
+  const answer = await runPrompt(`${instruction}\n\n${JSON.stringify(data)}`, signal, undefined, route);
   if (action === 'simpler') {
     try {
       const text = readJson(answer)?.answer;
