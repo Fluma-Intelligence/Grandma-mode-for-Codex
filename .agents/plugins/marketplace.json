@@ -1,0 +1,12 @@
+{
+  "name": "grandma-mode",
+  "interface": { "displayName": "Grandma Mode" },
+  "plugins": [
+    {
+      "name": "plain-speech",
+      "source": { "source": "local", "path": "./plugins/plain-speech" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

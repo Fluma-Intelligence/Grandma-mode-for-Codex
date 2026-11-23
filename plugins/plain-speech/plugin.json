@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "plain-speech",
+  "version": "0.6.2",
+  "description": "Turn Codex replies into plain language, quick diagrams, and short follow-up answers.",
+  "license": "MIT",
+  "author": { "name": "Fluma.ai/an" },
+  "repository": "https://github.com/Fluma-Intelligence/Grandma-mode-for-Codex",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Grandma Mode",
+        "developerName": "Fluma.ai/an",
+        "shortDescription": "Less jargon, more yarn.",
+        "longDescription": "Open Grandma Mode in a Codex Desktop chat. Choose the last completed reply, an older reply, or a selected passage. Get a short explanation in the original language, ask for a diagram, or ask what you need to do next.",
+        "category": "Productivity",
+        "logo": "./assets/yarn.png",
+        "composerIcon": "./assets/yarn.png",
+        "capabilities": ["Interactive"]
+      }
+    }
+  }
+}

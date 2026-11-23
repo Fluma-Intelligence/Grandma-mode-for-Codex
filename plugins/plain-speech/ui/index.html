@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>grandma-mode codex</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (() => {
+      const media = matchMedia('(prefers-color-scheme: dark)');
+      const apply = () => {
+        document.documentElement.dataset.scheme = media.matches ? 'dark' : 'light';
+        window.dispatchEvent(new Event('schemechange'));
+      };
+      media.addEventListener('change', apply);
+      apply();
+    })();
+  </script>
+</head>
+<body>
+  <main class="card" data-pet-size="medium">
+    <div id="workspace">
+    <header class="cover">
+      <div class="cover-copy">
+        <h1><span>grandma-mode</span> codex</h1>
+        <button class="primary" id="translate" type="button" disabled>
+          <span id="action-label" data-i18n="title">翻成大白话</span><i class="arrow" aria-hidden="true"></i>
+        </button>
+        <span id="status" class="sr-only" role="status"></span>
+      </div>
+      <canvas class="stage" id="pet" width="360" height="206" role="img" hidden></canvas>
+      <button class="settings-toggle" id="settings-toggle" type="button" aria-controls="appearance" aria-expanded="false" data-i18n-label="appearance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 3.6h4l.5 2.5 1.5.9 2.5-.8 2 3.4-1.8 1.8v1.8l1.8 1.8-2 3.4-2.5-.8-1.5.9-.5 2.5h-4l-.5-2.5-1.5-.9-2.5.8-2-3.4 1.8-1.8v-1.8L3.5 9.6l2-3.4L8 7l1.5-.9Z"/>
+          <circle cx="12" cy="12" r="2.7"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="怎么看" data-i18n-label="viewTabs">
+      <button type="button" id="text-tab" role="tab" aria-selected="true" aria-controls="text-panel">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 6.5h16M4 12h10.5M4 17.5h13"/>
+        </svg><span data-i18n="textTab">一句话说清</span>
+      </button>
+      <button type="button" id="diagram-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="diagram-panel">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4v15.2c0 .4.4.8.8.8H20"/><path d="M8.5 16v-4.2M13 16V8.4M17.5 16v-6.4"/>
+        </svg><span data-i18n="diagramTab">看图解</span>
+      </button>
+      <button type="button" id="ask-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="ask-panel">
+        <svg class="tab-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M7.4 4.5h9.2c1.5 0 2.7 1.2 2.7 2.7v4.6c0 1.5-1.2 2.7-2.7 2.7h-4.4l-3.9 3.2v-3.2h-.9c-1.5 0-2.7-1.2-2.7-2.7V7.2c0-1.5 1.2-2.7 2.7-2.7Z"/>
+          <path d="M10.2 8.6c.2-.9 1-1.5 1.9-1.4 1 .1 1.6.9 1.5 1.8-.1 1.1-1.4 1.4-1.5 2.3"/>
+          <circle cx="12.1" cy="12.9" r=".35" fill="currentColor" stroke="none"/>
+        </svg><span data-i18n="askTab">问小 Codex</span>
+      </button>
+    </div>
+
+    <section class="reading" id="text-panel" role="tabpanel" aria-labelledby="text-tab">
+      <div class="reading-head">
+        <span class="loading" id="loading" hidden aria-hidden="true"><span class="loading-dots"><i></i><i></i><i></i></span><span data-i18n="working">翻译中</span></span>
+        <div class="reading-actions">
+          <button class="text-action" id="copy" type="button" disabled><i class="copy-icon" aria-hidden="true"></i><span id="copy-label" data-i18n="copy">复制</span></button>
+          <button class="text-action" id="retry" type="button" data-i18n="rephrase" disabled>换种说法</button>
+        </div>
+      </div>
+      <div id="answer" class="translation placeholder" aria-busy="false" data-i18n="waiting">翻译会出现在这里。</div>
+      <p class="notice" id="notice" role="status" hidden></p>
+    </section>
+
+    <section class="view-panel" id="diagram-panel" role="tabpanel" aria-labelledby="diagram-tab" hidden>
+      <div class="diagram-action" id="diagram-action">
+        <button class="primary" id="generate-diagram" type="button" data-i18n="makeDiagram">生成图解</button>
+        <span class="usage" id="diagram-usage" data-i18n="diagramUsage">生成时会用一次 Codex 用量</span>
+      </div>
+      <p class="notice" id="diagram-notice" role="status" hidden></p>
+      <div id="diagram-result" aria-live="polite"></div>
+      <button class="quiet-action" id="copy-diagram" type="button" data-i18n="copy" hidden>复制</button>
+    </section>
+
+    <section class="view-panel" id="ask-panel" role="tabpanel" aria-labelledby="ask-tab" hidden>
+      <div class="ask-options" id="ask-options">
+        <button type="button" class="bubble bubble-prompt" data-action="simpler" data-i18n="askSimpler">我奶奶还是没听懂</button>
+        <button type="button" class="bubble bubble-prompt" data-action="next" data-i18n="askNext">我奶奶接下来该干嘛</button>
+        <button type="button" class="bubble bubble-prompt" data-action="details" data-i18n="askDetails">我奶奶说可以详细点</button>
+        <button type="button" class="bubble bubble-prompt" data-action="fixed" data-i18n="askFixed">乖，别讲那么多，告诉奶奶到底修好了没有。 🧶</button>
+      </div>
+      <p class="usage ask-usage" id="ask-usage" data-i18n="askUsage">点一个问题，小 Codex 就回答</p>
+      <p class="notice" id="ask-notice" role="status" hidden></p>
+      <div id="ask-results" aria-live="polite"></div>
+    </section>
+
+    <section class="history" id="history" hidden>
+      <button class="quiet-action" id="history-toggle" type="button" aria-expanded="false" aria-controls="history-panel" data-i18n="chooseReply">选其他回复</button>
+      <div class="history-panel" id="history-panel" hidden>
+        <ul class="reply-list" id="reply-list"></ul>
+        <p class="notice" id="history-notice" role="status" hidden></p>
+        <button class="quiet-action" id="more-replies" type="button" data-i18n="olderReplies" hidden>更早的回复</button>
+      </div>
+    </section>
+
+    <details class="original" id="original">
+      <summary aria-label="展开原文" title="展开原文">
+        <span data-i18n="sealedSource" id="original-title">臭长原文已密封</span>
+        <span class="source-hint" data-i18n="unsealSource" id="original-hint">我偏要看</span>
+        <svg class="eye eye-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 10c2.4 3.5 5.4 5.2 9 5.2s6.6-1.7 9-5.2M6.6 13.5l-1.8 2.3M12 15.2v2.9M17.4 13.5l1.8 2.3"/>
+        </svg>
+        <svg class="eye eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2.6 12c2.5-3.9 5.6-5.8 9.4-5.8s6.9 1.9 9.4 5.8c-2.5 3.9-5.6 5.8-9.4 5.8s-6.9-1.9-9.4-5.8Z"/>
+          <circle cx="12" cy="12" r="2.55"/>
+        </svg>
+      </summary>
+      <div class="source">
+        <textarea id="source" aria-label="原文" data-i18n-label="original" maxlength="48000" spellcheck="false" placeholder="粘贴一段 Codex 回复或报告…"></textarea>
+        <div class="source-actions">
+          <button class="text-action" id="example" type="button" data-i18n="example">试试例子</button>
+          <button class="text-action" id="translate-reply" type="button" data-i18n="rewriteReply" hidden>翻这条</button>
+          <button class="text-action selection-action" id="translate-selection" type="button" data-i18n="rewriteSelection" hidden>翻这段</button>
+        </div>
+      </div>
+    </details>
+    </div>
+
+    <section class="appearance-page" id="appearance" aria-labelledby="appearance-title" hidden>
+      <header class="appearance-page-head">
+        <button class="appearance-back" id="settings-back" type="button" data-i18n-label="backToCard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m14 6-6 6 6 6"/>
+          </svg>
+        </button>
+        <h2 id="appearance-title" data-i18n="appearance">外观设置</h2>
+      </header>
+      <div class="appearance">
+        <section class="appearance-group" aria-labelledby="accent-heading">
+          <h3 id="accent-heading" data-i18n="accentColor">主题色</h3>
+          <div class="swatch-grid" id="swatches" role="radiogroup" aria-labelledby="accent-heading">
+            <label class="swatch swatch-custom" id="custom-swatch" role="radio" aria-checked="false" tabindex="0">
+              <input id="accent-color" type="color" value="#2851d5" tabindex="-1" aria-hidden="true">
+              <span class="swatch-mini" aria-hidden="true">
+                <i class="sw-mini-cover"><i class="sw-mini-pill"></i></i>
+                <i class="sw-mini-body"><i></i><i></i></i>
+              </span>
+            </label>
+          </div>
+        </section>
+        <section class="appearance-group" aria-labelledby="pet-heading">
+          <h3 id="pet-heading" data-i18n="petSection">角色</h3>
+          <div class="appearance-row" role="group" aria-labelledby="pet-size-label">
+            <span id="pet-size-label" data-i18n="petSize">角色大小</span>
+            <div class="size-options">
+              <label><input type="radio" name="pet-size" value="small"><span data-i18n="petSmall">小</span></label>
+              <label><input type="radio" name="pet-size" value="medium" checked><span data-i18n="petMedium">中</span></label>
+              <label><input type="radio" name="pet-size" value="large"><span data-i18n="petLarge">大</span></label>
+            </div>
+          </div>
+          <div class="appearance-row">
+            <span data-i18n="petPack">角色包</span>
+            <div class="appearance-actions">
+              <input id="pet-file" type="file" accept=".json,application/json" hidden>
+              <button class="text-action" id="import-pet" type="button" data-i18n="importPet">导入角色包</button>
+              <button class="text-action" id="reset-pet" type="button" data-i18n="resetPet" hidden>移除角色</button>
+            </div>
+          </div>
+          <div class="pet-status" id="pet-status">
+            <i class="pet-status-dot" aria-hidden="true"></i>
+            <span id="current-pet" data-i18n="noPet">未设置角色</span>
+            <strong id="pet-credit" hidden></strong>
+          </div>
+        </section>
+        <p class="appearance-help"><span data-i18n="makePetHint">想做自己的角色？在 Codex 里用</span> <code>$grandma-pet</code></p>
+        <p class="notice" id="appearance-status" role="status" hidden></p>
+        <footer class="appearance-developer">
+          <div class="developer-info">
+            <strong>grandma-mode codex</strong>
+            <span data-i18n="developerTagline">把 Codex 的回复翻成大白话</span>
+            <span class="developer-byline"><span data-i18n="developerLabel">开发者</span> Fluma.ai/an</span>
+          </div>
+          <a class="developer-link" id="project-link" href="https://github.com/Fluma-Intelligence/Grandma-mode-for-Codex" target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            <span>GitHub</span>
+          </a>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <script src="locale.js"></script>
+  <script src="pet-format.js"></script>
+  <script src="pet.js"></script>
+  <script src="views.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

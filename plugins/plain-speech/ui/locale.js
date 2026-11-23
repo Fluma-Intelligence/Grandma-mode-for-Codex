@@ -1,0 +1,226 @@
+(() => {
+  const messages = {
+    'zh-CN': {
+      title: '翻成大白话', original: '原文', plain: '大白话', example: '试试例子', copy: '复制',
+      rephrase: '换种说法', openOriginal: '展开原文', closeOriginal: '收起原文', impactWord: '扑通！',
+      paste: '粘贴一段 Codex 回复或报告…', waiting: '翻译会出现在这里。', latest: '翻最新回复',
+      chooseReply: '选其他回复', olderReplies: '更早的回复', readingReplies: '正在找回复…', readingSource: '正在打开原文…',
+      rewriteReply: '翻这条', rewriteSelection: '翻这段', replyChanged: '这条回复有变化，请重新打开原文。',
+      viewTabs: '怎么看', textTab: '一句话说清', diagramTab: '看图解', askTab: '问小 Codex',
+      makeDiagram: '生成图解', diagramUsage: '生成时会用一次 Codex 用量', diagramWorking: '小 Codex 在画图…',
+      diagramInvalid: '这张图没画好，可以再试一次。', before: '以前', after: '现在',
+      done: '做完了', doing: '正在做', pending: '还没做', blocked: '卡住了',
+      askSimpler: '我奶奶还是没听懂', askNext: '我奶奶接下来该干嘛', askDetails: '我奶奶说可以详细点',
+      askFixed: '乖，别讲那么多，告诉奶奶到底修好了没有。 🧶',
+      askUsage: '点一个问题，小 Codex 就回答', askWorking: '小 Codex 在想怎么说…',
+      simplerNeedsAnswer: '先看「一句话说清」，小 Codex 才能接着讲。',
+      sampleNext: '这条没说你要做什么。',
+      sampleSimpler: '试过了，新版能登录，大家还没用上。',
+      grandmaPet: '织毛衣的 Codex 奶奶',
+      slidePet: '滑跪的小 Codex', drawingPet: '正在画图的小 Codex',
+      appearance: '外观设置', accentColor: '主题色', resetAccent: '默认色', petPack: '角色包',
+      preset_default: '默认蓝', preset_terracotta: '山楂红', preset_matcha: '抹茶绿', preset_celadon: '青瓷',
+      preset_grape: '葡萄紫', preset_honey: '蜜糖橙', preset_sakura: '樱粉', customColor: '自定义', petSection: '角色',
+      petSize: '角色大小', petSmall: '小', petMedium: '中', petLarge: '大',
+      importPet: '导入角色包', resetPet: '移除角色', noPet: '未设置角色', developerLabel: '开发者', backToCard: '返回卡片',
+      developerTagline: '把 Codex 的回复翻成大白话',
+      makePetHint: '想做自己的角色？在 Codex 里用', invalidPet: '这个角色包打不开，请导入技能打包后的 JSON。',
+      appearanceSaved: '已保存在本机。', appearancePreview: '已应用到预览。', appearanceError: '外观暂时无法读取或保存。请重试。',
+      petSlideLabel: '角色在滑跪', petDrawLabel: '角色在画图', petKnitLabel: '角色在织毛衣',
+      sealedSource: '臭长原文已密封', unsealSource: '我偏要看', sealSource: '封回去',
+      idle: '小 Codex 准备交稿', working: '翻译中', rewriting: '正在改写…', sliding: '小 Codex 滑跪中…',
+      handingIn: '正在交稿', delivered: '小 Codex 已交稿', finished: '翻好了',
+      copying: '译文已选中，可以按 Ctrl+C 或 ⌘C 复制。', copied: '已复制', preview: '网页预览 · 可试用例子',
+      unfinished: '翻译暂未完成。', waitingForDraft: '小 Codex 还在等稿',
+      retry: '这次没有翻好，可以再试一次。', connection: '暂时连不上 Codex。重新打开卡片后再试。',
+      initialTimeout: '还没收到译文。可以点「翻最新回复」再试。', cancelled: '这次翻译停下了。可以再翻一次。',
+      previewOnly: '网页预览可试用例子。想翻其他原文，请在 Codex 里打开插件。',
+      invalidSource: '请输入 1 到 48,000 字符的原文。', tooLong: '这条回复太长，可以分段来翻。',
+      openFromChat: '请从 Codex 聊天里打开 grandma-mode codex，也可以直接粘贴原文。',
+      historyUnavailable: '暂时读不到这条聊天的回复。可以稍后再试，或粘贴原文。',
+      noReply: '还没找到一条写完的回复。等 Codex 回完再翻。',
+      modelTimeout: '这次改写超过 90 秒了。可以重试，或分段来翻。',
+      cliMissing: '找不到 Codex CLI。请确认 codex 命令可用。', cliLogin: '请先登录 Codex CLI，再试一次。',
+      usageLimit: 'Codex 当前用量已受限。请稍后再试。',
+      sampleSource: '已将新版本部署至测试环境。登录冒烟测试通过，生产环境未发布。',
+      sampleAnswer: '新版还在试。我们试过了，能登录。大家平时用的版本还没更新。',
+      sampleAlternate: '现在大家用的还是旧版。新版已经能试用了，也确认过能登录。',
+    },
+    'zh-TW': {
+      title: '翻成大白話', original: '原文', plain: '大白話', example: '試試範例', copy: '複製',
+      rephrase: '換種說法', openOriginal: '展開原文', closeOriginal: '收起原文', impactWord: '撲通！',
+      paste: '貼上一段 Codex 回覆或報告…', waiting: '翻譯會出現在這裡。', latest: '翻最新回覆',
+      chooseReply: '選其他回覆', olderReplies: '更早的回覆', readingReplies: '正在找回覆…', readingSource: '正在開啟原文…',
+      rewriteReply: '翻這則', rewriteSelection: '翻這段', replyChanged: '這則回覆有變動，請重新開啟原文。',
+      viewTabs: '怎麼看', textTab: '一句話說清', diagramTab: '看圖解', askTab: '問小 Codex',
+      makeDiagram: '產生圖解', diagramUsage: '產生時會用一次 Codex 用量', diagramWorking: '小 Codex 在畫圖…',
+      diagramInvalid: '這張圖沒畫好，可以再試一次。', before: '以前', after: '現在',
+      done: '做完了', doing: '正在做', pending: '還沒做', blocked: '卡住了',
+      askSimpler: '我奶奶還是沒聽懂', askNext: '我奶奶接下來該做什麼', askDetails: '我奶奶說可以詳細一點',
+      askFixed: '乖，別講那麼多，告訴奶奶到底修好了沒有。 🧶',
+      askUsage: '點一個問題，小 Codex 就回答', askWorking: '小 Codex 在想怎麼說…',
+      simplerNeedsAnswer: '先看「一句話說清」，小 Codex 才能接著講。',
+      sampleNext: '這則沒有說你要做什麼。',
+      sampleSimpler: '試過了，新版能登入，大家還沒用上。',
+      grandmaPet: '織毛衣的 Codex 奶奶',
+      slidePet: '滑跪的小 Codex', drawingPet: '正在畫圖的小 Codex',
+      appearance: '外觀設定', accentColor: '主題色', resetAccent: '預設色', petPack: '角色包',
+      preset_default: '預設藍', preset_terracotta: '山楂紅', preset_matcha: '抹茶綠', preset_celadon: '青瓷',
+      preset_grape: '葡萄紫', preset_honey: '蜜糖橙', preset_sakura: '櫻粉', customColor: '自訂', petSection: '角色',
+      petSize: '角色大小', petSmall: '小', petMedium: '中', petLarge: '大',
+      importPet: '匯入角色包', resetPet: '移除角色', noPet: '尚未設定角色', developerLabel: '開發者', backToCard: '返回卡片',
+      developerTagline: '把 Codex 的回覆翻成大白話',
+      makePetHint: '想做自己的角色？在 Codex 裡用', invalidPet: '這個角色包無法開啟，請匯入技能打包後的 JSON。',
+      appearanceSaved: '已儲存在本機。', appearancePreview: '已套用到預覽。', appearanceError: '暫時無法讀取或儲存外觀。請重試。',
+      petSlideLabel: '角色正在滑跪', petDrawLabel: '角色正在畫圖', petKnitLabel: '角色正在織毛衣',
+      sealedSource: '臭長原文已密封', unsealSource: '我偏要看', sealSource: '封回去',
+      idle: '小 Codex 準備交稿', working: '翻譯中', rewriting: '正在改寫…', sliding: '小 Codex 滑跪中…',
+      handingIn: '正在交稿', delivered: '小 Codex 已交稿', finished: '翻好了',
+      copying: '已選取譯文，可以按 Ctrl+C 或 ⌘C 複製。', copied: '已複製', preview: '網頁預覽 · 可試用範例',
+      unfinished: '翻譯還沒完成。', waitingForDraft: '小 Codex 還在等稿',
+      retry: '這次沒有翻好，可以再試一次。', connection: '暫時連不上 Codex。重新開啟卡片後再試。',
+      initialTimeout: '還沒收到譯文。可以點「翻最新回覆」再試。', cancelled: '這次翻譯停下了。可以再翻一次。',
+      previewOnly: '網頁預覽可試用範例。想翻其他原文，請在 Codex 裡開啟外掛。',
+      invalidSource: '請輸入 1 到 48,000 個字元的原文。', tooLong: '這則回覆太長，可以分段來翻。',
+      openFromChat: '請從 Codex 聊天裡開啟 grandma-mode codex，也可以直接貼上原文。',
+      historyUnavailable: '暫時讀不到這個聊天的回覆。可以稍後再試，或貼上原文。',
+      noReply: '還沒找到一則寫完的回覆。等 Codex 回完再翻。',
+      modelTimeout: '這次改寫超過 90 秒了。可以重試，或分段來翻。',
+      cliMissing: '找不到 Codex CLI。請確認 codex 指令可用。', cliLogin: '請先登入 Codex CLI，再試一次。',
+      usageLimit: 'Codex 目前用量已受限。請稍後再試。',
+      sampleSource: '已將新版本部署至測試環境。登入冒煙測試通過，正式環境尚未發布。',
+      sampleAnswer: '新版還在試。我們試過了，能登入。大家平常用的版本還沒更新。',
+      sampleAlternate: '現在大家用的還是舊版。新版已經能試用了，也確認過能登入。',
+    },
+    en: {
+      title: 'Plain language', original: 'Original', plain: 'Plain version', example: 'Try an example', copy: 'Copy',
+      rephrase: 'Rephrase', openOriginal: 'Show original', closeOriginal: 'Hide original', impactWord: 'THUD!',
+      paste: 'Paste a Codex reply or report…', waiting: 'The plain version will appear here.', latest: 'Rewrite latest reply',
+      chooseReply: 'Choose another reply', olderReplies: 'Older replies', readingReplies: 'Finding replies…', readingSource: 'Opening original…',
+      rewriteReply: 'Rewrite reply', rewriteSelection: 'Rewrite selection', replyChanged: 'This reply changed. Open the original again.',
+      viewTabs: 'Ways to read', textTab: 'In a few words', diagramTab: 'Show me a diagram', askTab: 'Ask little Codex',
+      makeDiagram: 'Make a diagram', diagramUsage: 'Generating a new diagram uses your Codex allowance', diagramWorking: 'Little Codex is drawing…',
+      diagramInvalid: 'The diagram didn’t come out right. You can try again.', before: 'Before', after: 'After',
+      done: 'Done', doing: 'In progress', pending: 'Still to do', blocked: 'Blocked',
+      askSimpler: 'My grandma still doesn’t get it', askNext: 'What should my grandma do next?', askDetails: 'My grandma wants a bit more detail',
+      askFixed: 'Sweetie, just tell Grandma. Is it fixed yet? 🧶',
+      askUsage: 'Pick a question for little Codex', askWorking: 'Little Codex is finding the words…',
+      simplerNeedsAnswer: 'Get an answer in “In a few words” first so little Codex can make it simpler.',
+      sampleNext: 'This reply doesn’t say you need to do anything.',
+      sampleSimpler: 'Signing in worked in the test. The new version isn’t out yet.',
+      grandmaPet: 'Grandma Codex knitting',
+      slidePet: 'Little Codex doing a knee slide', drawingPet: 'Little Codex drawing a chart',
+      appearance: 'Appearance settings', accentColor: 'Theme color', resetAccent: 'Default color', petPack: 'Character pack',
+      preset_default: 'Default blue', preset_terracotta: 'Terracotta', preset_matcha: 'Matcha', preset_celadon: 'Celadon',
+      preset_grape: 'Grape', preset_honey: 'Honey', preset_sakura: 'Sakura', customColor: 'Custom', petSection: 'Character',
+      petSize: 'Character size', petSmall: 'Small', petMedium: 'Medium', petLarge: 'Large',
+      importPet: 'Import pack', resetPet: 'Remove character', noPet: 'No character selected', developerLabel: 'Developed by', backToCard: 'Back to card',
+      developerTagline: 'Codex replies, rewritten in plain language',
+      makePetHint: 'Make your own in Codex with', invalidPet: 'This pack could not be opened. Import the JSON made by the skill.',
+      appearanceSaved: 'Saved on this device.', appearancePreview: 'Applied to this preview.', appearanceError: 'Could not load or save appearance. Try again.',
+      petSlideLabel: 'Character doing a knee slide', petDrawLabel: 'Character drawing a chart', petKnitLabel: 'Character knitting',
+      sealedSource: 'The long original is sealed away', unsealSource: 'I still want to see it', sealSource: 'Seal it again',
+      idle: 'Little Codex is ready', working: 'Working…', rewriting: 'Rewriting…', sliding: 'Little Codex is sliding in…',
+      handingIn: 'Working on it', delivered: 'Little Codex has delivered', finished: 'Ready',
+      copying: 'Text selected. Press Ctrl+C or ⌘C to copy.', copied: 'Copied', preview: 'Web preview · try the example',
+      unfinished: 'The rewrite didn’t finish.', waitingForDraft: 'Little Codex is waiting',
+      retry: 'The rewrite didn’t work this time. You can try again.', connection: 'Can’t reach Codex. Reopen the card to try again.',
+      initialTimeout: 'No rewrite yet. Select “Rewrite latest reply” to try again.', cancelled: 'The rewrite stopped. You can try again.',
+      previewOnly: 'Try the example here. To rewrite your own text, open the plugin in Codex.',
+      invalidSource: 'Enter between 1 and 48,000 characters.', tooLong: 'This reply is too long. Try rewriting it in sections.',
+      openFromChat: 'Open grandma-mode codex from a Codex chat, or paste your text here.',
+      historyUnavailable: 'Couldn’t read the reply from this chat. Try again later, or paste the text here.',
+      noReply: 'No finished reply yet. Try again after Codex has answered.',
+      modelTimeout: 'This took more than 90 seconds. Try again, or try a shorter section.',
+      cliMissing: 'Couldn’t find the Codex CLI. Check that the codex command is available.',
+      cliLogin: 'Sign in to the Codex CLI, then try again.', usageLimit: 'You’ve reached a Codex usage limit. Try again later.',
+      sampleSource: 'Deployed to staging. The login smoke check passed. Production rollout is pending.',
+      sampleAnswer: 'The new version is ready to try in a test area. We checked that you can sign in. The version everyone normally uses hasn’t changed yet.',
+      sampleAlternate: 'Everyone is still using the old version. The new one is ready to try, and signing in works there.',
+    },
+    ja: {
+      title: 'やさしい言葉に', original: '原文', plain: 'やさしい言い方', example: '例を試す', copy: 'コピー',
+      rephrase: '別の言い方', openOriginal: '原文を表示', closeOriginal: '原文を閉じる', impactWord: 'ズサーッ！',
+      paste: 'Codex の返信や報告を貼り付けてください…', waiting: '言い換えた文がここに表示されます。', latest: '最新の返信を言い換える',
+      chooseReply: '別の返信を選ぶ', olderReplies: '前の返信', readingReplies: '返信を探しています…', readingSource: '原文を開いています…',
+      rewriteReply: 'この返信を言い換える', rewriteSelection: 'この部分を言い換える', replyChanged: '返信が変わりました。原文を開き直してください。',
+      viewTabs: '読み方を選ぶ', textTab: 'ひとことで', diagramTab: '図で見る', askTab: 'ちび Codex に聞く',
+      makeDiagram: '図を作る', diagramUsage: '新しい図を作ると Codex の利用枠を消費します', diagramWorking: 'ちび Codex が描いています…',
+      diagramInvalid: 'うまく図が作れませんでした。もう一度お試しください。', before: '前', after: '今',
+      done: '完了', doing: '進行中', pending: 'これから', blocked: '止まっています',
+      askSimpler: 'おばあちゃんはまだわからない', askNext: 'おばあちゃんは次に何をすればいい？', askDetails: 'おばあちゃんがもう少し詳しく知りたいって',
+      askFixed: 'いい子ね。直ったのかだけ、おばあちゃんに教えて。 🧶',
+      askUsage: 'ちび Codex への質問を選んでね', askWorking: 'ちび Codex が言い方を考えています…',
+      simplerNeedsAnswer: 'まず「ひとことで」の答えを作ると、もっと短く言い直せます。',
+      sampleNext: 'この返信には、あなたが何をするかは書かれていません。',
+      sampleSimpler: '試したらログインできました。新しい版はまだみんなには出ていません。',
+      grandmaPet: '編み物をする Codex おばあちゃん',
+      slidePet: '膝で滑り込むちび Codex', drawingPet: 'グラフを描くちび Codex',
+      appearance: '外観設定', accentColor: 'テーマ色', resetAccent: '既定の色', petPack: 'キャラクターパック',
+      preset_default: '既定の青', preset_terracotta: 'テラコッタ', preset_matcha: '抹茶', preset_celadon: '青磁',
+      preset_grape: 'ぶどう', preset_honey: 'はちみつ', preset_sakura: '桜', customColor: 'カスタム', petSection: 'キャラクター',
+      petSize: 'キャラクターの大きさ', petSmall: '小', petMedium: '中', petLarge: '大',
+      importPet: 'パックを読み込む', resetPet: 'キャラクターを外す', noPet: 'キャラクター未設定', developerLabel: '開発', backToCard: 'カードに戻る',
+      developerTagline: 'Codex の返信をやさしい言葉に',
+      makePetHint: 'Codex でオリジナルのキャラを作るには', invalidPet: 'パックを開けません。スキルで作成した JSON を読み込んでください。',
+      appearanceSaved: 'この端末に保存しました。', appearancePreview: 'プレビューに反映しました。', appearanceError: '外観を読み込み・保存できませんでした。再試行してください。',
+      petSlideLabel: '膝で滑り込むキャラクター', petDrawLabel: 'グラフを描くキャラクター', petKnitLabel: '編み物をするキャラクター',
+      sealedSource: '長ーい原文は封をしました', unsealSource: 'それでも見る', sealSource: 'もう一度封をする',
+      idle: 'ちび Codex は準備完了', working: '言い換え中', rewriting: '言い換えています…', sliding: 'ちび Codex がスライディング中…',
+      handingIn: '原稿を用意しています', delivered: 'ちび Codex が原稿をお届け', finished: 'できました',
+      copying: '文章を選択しました。Ctrl+C または ⌘C でコピーできます。', copied: 'コピーしました', preview: 'プレビュー · 例を試せます',
+      unfinished: '言い換えが完了しませんでした。', waitingForDraft: 'ちび Codex は原稿待ち',
+      retry: '今回は言い換えられませんでした。もう一度お試しください。', connection: 'Codex に接続できません。カードを開き直してください。',
+      initialTimeout: 'まだ結果が届いていません。「最新の返信を言い換える」で再試行できます。',
+      cancelled: '言い換えが中断されました。もう一度お試しください。',
+      previewOnly: 'ここでは例を試せます。ご自分の文章を言い換えるには、Codex でプラグインを開いてください。',
+      invalidSource: '原文は 1〜48,000 文字で入力してください。', tooLong: '返信が長すぎます。文章を分けてお試しください。',
+      openFromChat: 'Codex のチャットで grandma-mode codex を開くか、原文をここに貼り付けてください。',
+      historyUnavailable: 'チャットの返信を読み込めません。少し待って再試行するか、原文を貼り付けてください。',
+      noReply: 'まだ最後まで書かれた返信がありません。Codex の返信が終わってからお試しください。',
+      modelTimeout: '90 秒を超えました。もう一度試すか、文章を分けてください。',
+      cliMissing: 'Codex CLI が見つかりません。codex コマンドが使えるか確認してください。',
+      cliLogin: 'Codex CLI にログインしてから、もう一度お試しください。',
+      usageLimit: 'Codex の利用上限に達しました。しばらくしてからお試しください。',
+      sampleSource: '検証環境へのデプロイが完了し、ログインのスモークテストに合格しました。本番は未リリースです。',
+      sampleAnswer: '新しい版は、試せる場所に置いてあります。ログインできることを確認しました。みんなが普段使う版はまだ変わっていません。',
+      sampleAlternate: 'みんなが使っているのは、まだ前の版です。新しい版は試せる状態で、ログインもできました。',
+    },
+  };
+
+  let locale;
+
+  function language() {
+    const preference = (navigator.languages?.[0] || navigator.language || 'en').toLowerCase();
+    if (/^zh(?:-|$)/.test(preference)) {
+      if (/-hans(?:-|$)/.test(preference)) return 'zh-CN';
+      return /-(?:hant|tw|hk|mo)(?:-|$)/.test(preference) ? 'zh-TW' : 'zh-CN';
+    }
+    return /^ja(?:-|$)/.test(preference) ? 'ja' : 'en';
+  }
+
+  function t(key) {
+    const text = messages[locale][key];
+    return typeof text === 'string' ? text : messages[locale].retry;
+  }
+
+  function label(node, key) {
+    if (key) node.dataset.i18n = key;
+    else delete node.dataset.i18n;
+    node.textContent = key ? t(key) : '';
+  }
+
+  function refresh() {
+    locale = language();
+    document.documentElement.lang = locale;
+    document.querySelector('#source').placeholder = t('paste');
+    for (const node of document.querySelectorAll('[data-i18n]')) label(node, node.dataset.i18n);
+    for (const node of document.querySelectorAll('[data-i18n-label]')) {
+      node.setAttribute('aria-label', t(node.dataset.i18nLabel));
+    }
+  }
+
+  refresh();
+  window.addEventListener('languagechange', refresh);
+  window.plainSpeechLocale = { t, label };
+})();
