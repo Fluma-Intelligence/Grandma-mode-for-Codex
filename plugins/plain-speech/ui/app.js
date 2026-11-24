@@ -96,6 +96,10 @@
     sync();
   });
   window.addEventListener('languagechange', syncOriginalLabel);
+  get('seal-source').addEventListener('click', () => {
+    original.open = false;
+    original.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
 
   function prefill(text) {
     if (!text || edited || busy || sourcePending || snapshot?.target || source.value) return;

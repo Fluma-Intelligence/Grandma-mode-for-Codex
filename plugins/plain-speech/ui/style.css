@@ -144,16 +144,19 @@ h1 { margin: 0; font-size: clamp(23px, 4.6vw, 36px); font-weight: 800; line-heig
 .appearance-group { padding: 2px 0 10px; }
 .appearance-group + .appearance-group { margin-top: 6px; padding-top: 13px; border-top: 1px solid var(--hairline); }
 .appearance-group h3 { margin: 0 0 9px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; }
-.model-form { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px 12px; font-size: 13px; }
+.model-form { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px 12px; padding-top: 2px; font-size: 13px; }
 .model-form > label { color: var(--ink); }
-.model-form :is(select, input) { width: 100%; min-width: 0; min-height: 34px; padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; }
+.model-form :is(select, input) { width: 100%; min-width: 0; min-height: 34px; padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; transition: border-color .18s ease, box-shadow .18s ease; }
+.model-form :is(select, input):not(:disabled):hover { border-color: var(--track); }
 .model-form :is(select, input):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .model-form :is(select, input):disabled { opacity: .65; }
-.api-fields { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; row-gap: 8px; animation: panel-in .24s var(--ease-out) both; }
-.api-model-row { display: flex; gap: 6px; min-width: 0; }
+.api-fields { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; row-gap: 10px; padding-block: 2px; animation: panel-in .24s var(--ease-out) both; }
+.api-model-row { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.api-model-row input { flex: 1 1 12em; }
 .model-hint, .model-actions { grid-column: 1 / -1; }
-.model-hint { margin: 0; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
-.model-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.model-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.model-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+#save-model.primary { margin: 0; min-height: 34px; padding: 0 14px; font-size: 13px; }
 .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 9px; }
 .swatch { position: relative; margin: 0; padding: 4px; border: 1px solid var(--hairline); border-radius: 13px; background: var(--card); cursor: pointer; transition: border-color .18s ease, box-shadow .18s ease, transform .18s var(--ease-out); }
 .swatch:hover { transform: translateY(-2px); border-color: var(--track); box-shadow: 0 8px 16px -10px var(--shadow); }
@@ -336,10 +339,11 @@ h1 { margin: 0; font-size: clamp(23px, 4.6vw, 36px); font-weight: 800; line-heig
 .original[open] .eye-open { display: block; color: var(--primary); }
 .source { padding: 12px 14px 15px; border-top: 1px solid var(--hairline); color: var(--muted); line-height: 1.8; overflow-wrap: anywhere; }
 .original[open] .source { animation: panel-in .3s var(--ease-out); }
-#source { display: block; width: 100%; min-height: 3.2em; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; field-sizing: content; overflow: hidden; resize: none; overflow-wrap: anywhere; }
+#source { display: block; width: 100%; min-height: 3.2em; max-block-size: 15em; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; field-sizing: content; overflow: auto; resize: none; overflow-wrap: anywhere; }
 #source::placeholder { color: var(--muted); opacity: 1; }
-.source-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.source-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .source-actions > button { margin-top: 8px; }
+#seal-source { margin-inline-start: auto; }
 .selection-action { color: var(--primary); }
 
 @media (max-width: 540px) {
@@ -371,6 +375,10 @@ h1 { margin: 0; font-size: clamp(23px, 4.6vw, 36px); font-weight: 800; line-heig
   .history { margin: -8px 14px 8px; }
   .original { margin: 0 14px 14px; }
   .reading-head { flex-wrap: wrap; }
+  .model-form { grid-template-columns: minmax(0, 1fr); gap: 4px 0; }
+  .model-form > label { margin-top: 7px; }
+  .model-form > label:first-child { margin-top: 0; }
+  .api-fields { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
 }
 :root[data-scheme="dark"] {
     color-scheme: dark;
