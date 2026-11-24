@@ -347,7 +347,7 @@ async function receive({ id, method, params = {} }) {
       result = {
         protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'].includes(params.protocolVersion)
           ? params.protocolVersion : '2025-11-25',
-        serverInfo: { name, version: '0.6.5' },
+        serverInfo: { name, version: '0.6.6' },
         capabilities: { tools: {}, resources: {} },
       };
       break;
