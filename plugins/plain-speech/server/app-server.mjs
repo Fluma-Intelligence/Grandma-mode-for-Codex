@@ -32,7 +32,7 @@ export async function withAppServer(signal, unavailable, read) {
 
   try {
     if (!await request('initialize', {
-      clientInfo: { name: 'plain-speech', version: '0.6.5' }, capabilities: { experimentalApi: true },
+      clientInfo: { name: 'plain-speech', version: '0.6.6' }, capabilities: { experimentalApi: true },
     })) throw unavailable();
     send({ method: 'initialized' });
     return await read(request);
