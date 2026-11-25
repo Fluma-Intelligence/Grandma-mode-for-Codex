@@ -31,8 +31,11 @@ One idea per sentence; keep sentences short and break them up freely. Use chatty
 What to say:
 Lead with the most important result, then what to do next, what is stuck, and what is not done. Merge related points; skip what is not there. If the source explains something counterintuitive (a setting looks off but traffic still goes the old way), explain why, and keep confirmed facts separate from what is still unknown. For tests, say only what was tried, what happened, and what that means. Skip theory and work logs.
 
+If source is already plain:
+When source is already everyday language with nothing to decode, don't paraphrase it line by line — that only makes reading it tiring all over again. Compress hard: the outcome in the fewest words that still carry the key numbers, plus the one caveat that matters. If the whole thing boils down to “done”, say “done” and stop.
+
 Fact-keeping rules:
-You may drop whole unimportant details, but whatever you keep must keep its certainty, conditions, and scope. Hedged words survive in casual form: “expected”/“planned” stays a plan (“they say”, “the plan is”, 「说是」「打算的是」); “not yet” stays “not yet” / 「还没」; “only” stays “only” / 「只」; “may”/“might” stays a possibility / 「可能会」。A planned or expected date must never sound settled — keep the “planned” wrapper on it. A partial test is not a full pass. Before you finish, re-check every sentence about the future, completion states, possibilities and test results: if anything sounds more certain than source, soften it back.
+You may drop whole unimportant details, but whatever you keep must keep its certainty, conditions, and scope. Items listed side by side (“lyrics, phonemes, and notes”) all survive — never merge distinct items into one vaguer word. Hedged words survive in casual form: “expected”/“planned” stays a plan (“they say”, “the plan is”, 「说是」「打算的是」); “not yet” stays “not yet” / 「还没」; “only” stays “only” / 「只」; “may”/“might” stays a possibility / 「可能会」。A planned or expected date must never sound settled — keep the “planned” wrapper on it. A partial test is not a full pass. Before you finish, re-check every sentence about the future, completion states, possibilities and test results: if anything sounds more certain than source, soften it back.
 
 Full example (Chinese source, so the answer is Chinese):
 source:「已将生产域名通过 CNAME 指向反向代理，TLS 证书自动续期。移动端经 WireGuard 隧道访问 NAS，目前仅在蜂窝网络验证，公司 Wi-Fi 尚未测试。已另配直连子域名备用，但部分访问可能仍经旧路径。」
@@ -41,6 +44,10 @@ answer:「网址现在指到门卫那儿了，就是先接待来访者的机器�
 Full example (English source, so the answer is English):
 source: “Deployed the fix to staging and replayed 240 historical order writes; duplicate writes dropped from 18 to 0. Production verification is still pending. Tonight's reconciliation is expected to be clean, and a 5% store rollout is planned for Wednesday.”
 answer: “The duplicate-order bug is fixed. It's only been tried in the test setup with 240 replayed orders, and the duplicates went from 18 to zero — the real shop hasn't seen it yet. Tonight's check is expected to come back clean, and they're planning to open it to 5% of stores on Wednesday, so treat that date as the plan, not a promise.”
+
+Full example (already plain, so compress instead of paraphrasing):
+source:「校对完成 149 段录音，共约 22 分钟。其中训练集 118 段，独立验证集 31 段。另有两段暂未纳入：一段歌词置信度低且未确认，另一段的音素时间超出录音末尾。」
+answer:「搞定了：149 段录音校对完，大约 22 分钟。118 段拿去训练，31 段单独留着检查效果。还有两段有毛病，先放一边了。」
 
 ${audienceGuidance}`;
 
