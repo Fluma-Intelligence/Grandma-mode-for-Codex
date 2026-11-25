@@ -314,6 +314,16 @@ h1 { margin: 0; font-size: clamp(23px, 4.6vw, 36px); font-weight: 800; line-heig
 .notice { margin: 11px 0 0; font-size: 13px; }
 
 .history { margin: -13px 34px 12px; }
+.reply-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 12px; }
+.auto-rewrite {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 34px;
+  padding: 4px 9px; border: 1px solid transparent; border-radius: 8px;
+  color: var(--muted); font-size: 13px; cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.auto-rewrite input { width: 14px; height: 14px; margin: 0; accent-color: var(--primary); }
+.auto-rewrite:hover, .auto-rewrite:has(input:checked) { border-color: var(--hairline); color: var(--primary); }
+.auto-rewrite-hint { margin: 4px 0 8px; }
 .quiet-action { min-height: 34px; padding: 4px 0; border: 0; background: transparent; color: var(--primary); font-size: 13px; }
 .quiet-action:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .quiet-action:disabled { opacity: .6; }

@@ -13,6 +13,7 @@ import { codexProcessEnv } from '../plugins/plain-speech/server/codex-env.mjs';
 import { buildPrompt, maxLength, stripReaderAddress } from '../plugins/plain-speech/server/translate.mjs';
 import { decodeDiagram, viewVersion } from '../plugins/plain-speech/server/views.mjs';
 import { normalizePetPack } from '../plugins/plain-speech/server/pet-pack.mjs';
+import { hashText } from '../plugins/plain-speech/server/latest-reply.mjs';
 
 const plugin = new URL('../plugins/plain-speech/', import.meta.url);
 const example = 'We tried 24 old orders. Duplicate receipts fell from 6 to 0. New orders have not been tested.';
@@ -146,6 +147,7 @@ test('the installed server serves its cards under an ESM parent in an empty prof
       assert.match(card.mimeType, /^text\/html/);
       assert.ok(card.text.includes(`<body data-mode="${mode}">`));
       assert.match(card.text, /<details class="original" id="original">/);
+      assert.match(card.text, /<input id="auto-rewrite" type="checkbox" autocomplete="off"/);
       for (const id of ['text-panel', 'diagram-panel', 'ask-panel', 'appearance', 'pet-file', 'model-form']) {
         assert.ok(card.text.includes(`id="${id}"`));
       }
@@ -204,6 +206,8 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
   const preload = join(directory, 'simulate-codex.mjs');
   await writeFile(mock, String.raw`
     import assert from 'node:assert/strict';
+    import { readFileSync } from 'node:fs';
+    import { join } from 'node:path';
     import { createInterface } from 'node:readline';
     const [attempt, ...args] = process.argv.slice(2);
     if (args[0] === 'app-server') {
@@ -220,6 +224,16 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
             { model: 'image-only', inputModalities: ['image'], defaultReasoningEffort: 'low' },
             { model: 'hidden-model', hidden: true, defaultReasoningEffort: 'low' },
           ] };
+        }
+        if (request.method === 'thread/turns/list' || request.method === 'thread/items/list') {
+          const rolls = JSON.parse(readFileSync(join(process.env.CODEX_HOME, 'sample-replies.json'), 'utf8'));
+          if (rolls === null) {
+            console.log(JSON.stringify({ id: request.id,
+              error: { code: -32600, message: 'thread not loaded: ' + request.params.threadId } }));
+            continue;
+          }
+          if (request.method === 'thread/turns/list') result = { data: rolls };
+          else result = { data: rolls.find(({ id }) => id === request.params.turnId).items.map((item) => ({ item })) };
         }
         console.log(JSON.stringify({ id: request.id, result }));
       }
@@ -267,7 +281,7 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
     const originalSpawn = childProcess.spawn;
     let attempt = 0;
     childProcess.spawn = (file, args, options) =>
-      originalSpawn(file, [${JSON.stringify(mock)}, String(++attempt), ...args], options);
+      originalSpawn(file, [${JSON.stringify(mock)}, String(args.includes('exec') ? ++attempt : attempt), ...args], options);
     syncBuiltinESMExports();
     let calls = 0;
     globalThis.fetch = async (url, { body, headers, redirect, method }) => {
@@ -328,6 +342,32 @@ test('generation uses saved routes, keeps their caches separate, and reports saf
     };
   `);
   await withServer(directory, fileURLToPath(new URL('server/index.mjs', plugin)), async (_request, tool) => {
+    const threadId = 'da392112-6729-4795-9b88-1babc949a2f1';
+    const turn = (id, text, status = 'completed', phase = 'final_answer') => ({
+      id, status, items: [{ id: `msg-${id}`, type: 'agentMessage', phase, text }],
+    });
+    const saveReplies = (turns) => writeFile(join(directory, 'sample-replies.json'), JSON.stringify(turns));
+    const watch = async (after) => (await tool('watch_plain_speech_replies', { threadId, after }))._meta;
+    await saveReplies(null);
+    assert.deepEqual(await watch(), { checkpoint: null, replies: [] });
+    assert.deepEqual(await watch(null), { checkpoint: null, replies: [] });
+    await saveReplies([turn('old', 'Old reply')]);
+    const checkpoint = { turnId: 'old', messageId: 'msg-old' };
+    assert.deepEqual(await watch(), { checkpoint, replies: [] });
+    assert.deepEqual((await watch(null)).replies, [{ ...checkpoint, hash: hashText('Old reply') }]);
+    await saveReplies([turn('stream', 'Still writing', 'inProgress'), turn('comment', 'Progress update', 'completed', 'commentary'),
+      turn('newest', 'Second new reply'), turn('new', 'First new reply'), turn('old', 'Old reply')]);
+    const change = await watch(checkpoint);
+    assert.deepEqual(change, {
+      checkpoint: { turnId: 'newest', messageId: 'msg-newest' },
+      replies: [
+        { turnId: 'new', messageId: 'msg-new', hash: hashText('First new reply') },
+        { turnId: 'newest', messageId: 'msg-newest', hash: hashText('Second new reply') },
+      ],
+    });
+    assert.deepEqual(await watch(change.checkpoint), { checkpoint: change.checkpoint, replies: [] });
+    assert.deepEqual(await watch({ turnId: 'missing', messageId: 'missing' }), { checkpoint: change.checkpoint, replies: [] });
+
     const firstAnswer = 'Old orders no longer got extra receipts in the test.';
     const view = { action: 'simpler', source: example, firstAnswer };
     const ask = async (generate) => (await tool('plain_speech_view', { ...view, generate })).structuredContent;

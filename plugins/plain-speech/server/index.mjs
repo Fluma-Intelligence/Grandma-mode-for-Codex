@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
-import { listReplyPreviews, readReplySnapshot } from './latest-reply.mjs';
+import { listReplyPreviews, readReplySnapshot, watchReplyTargets } from './latest-reply.mjs';
 import { cacheKey, readTranslation, saveTranslation } from './cache.mjs';
 import { maxLength, translate, translationVersion } from './translate.mjs';
 import { decodeDiagram, generateView, viewActions, viewVersion } from './views.mjs';
@@ -128,6 +128,14 @@ const tools = [
     name: 'list_plain_speech_replies', title: '选择其他回复', description: '列出聊天里已写完的回复。',
     inputSchema: {
       type: 'object', properties: { threadId: threadField, cursor: { type: 'string', maxLength: 1024 } },
+      additionalProperties: false,
+    },
+    annotations: { ...annotations, openWorldHint: false }, _meta: cardToolMeta,
+  },
+  {
+    name: 'watch_plain_speech_replies', title: '检查新回复', description: '只读取本次聊天中已写完的新回复编号，不调用模型。',
+    inputSchema: {
+      type: 'object', properties: { threadId: threadField, after: { anyOf: [targetField, { type: 'null' }] } },
       additionalProperties: false,
     },
     annotations: { ...annotations, openWorldHint: false }, _meta: cardToolMeta,
@@ -261,23 +269,30 @@ async function callTool(params, id) {
   const args = params.arguments ?? {};
   const read = params.name === 'read_plain_speech_reply';
   const list = params.name === 'list_plain_speech_replies';
+  const watch = params.name === 'watch_plain_speech_replies';
   const selected = params.name === 'translate_plain_speech_reply';
   const linked = params.name === 'translate_linked_reply';
   const fromChat = selected || linked || params.name === 'translate_latest_reply';
   const extra = params.name === 'plain_speech_view';
-  if (!read && !list && !fromChat && !extra && params.name !== 'translate_plain_speech') {
+  if (!read && !list && !watch && !fromChat && !extra && params.name !== 'translate_plain_speech') {
     return { ...toolResult('找不到这个工具。'), isError: true };
   }
   if (fromChat && args.confirmed !== true) {
     return { ...toolResult('请点击「翻最新回复」后开始翻译。'), isError: true };
   }
-  const previousRewrite = !read && !list && !fromChat ? args.previousRewrite : undefined;
+  const previousRewrite = !read && !list && !watch && !fromChat ? args.previousRewrite : undefined;
   if (previousRewrite !== undefined && (typeof previousRewrite !== 'string' || previousRewrite.length > maxLength)) {
     return toolResult('上一版译文无法用于重试。', { code: 'retry', error: '上一版译文无法用于重试。' });
   }
   const controller = new AbortController();
   active.set(id, controller);
   try {
+    if (watch) {
+      if (args.after != null && !validTarget(args.after)) throw speechError('replyChanged', '请重新打开原文。');
+      const threadId = args.threadId ?? params._meta?.threadId;
+      const change = await watchReplyTargets(threadId, controller.signal, args.after);
+      return { ...toolResult('已检查新回复。'), _meta: change };
+    }
     const route = read || list ? undefined : await readModel();
     const threadId = linked || read || list || selected || extra ? args.threadId ?? params._meta?.threadId : params._meta?.threadId;
     if (list) {
@@ -347,7 +362,7 @@ async function receive({ id, method, params = {} }) {
       result = {
         protocolVersion: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'].includes(params.protocolVersion)
           ? params.protocolVersion : '2025-11-25',
-        serverInfo: { name, version: '0.6.6' },
+        serverInfo: { name, version: '0.6.7' },
         capabilities: { tools: {}, resources: {} },
       };
       break;

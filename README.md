@@ -32,6 +32,16 @@ Open a Codex Desktop chat. In the chat sidebar, click **+ → Grandma Mode**. If
 
 For a GitHub-backed update, run `codex plugin marketplace upgrade grandma-mode`, then `codex plugin add plain-speech@grandma-mode`.
 
+### Automatic updates on Windows
+
+From a checkout of this repository, run this in PowerShell to register a Windows task for the GitHub install. It checks at sign-in and every six hours through Codex's marketplace updater. If Codex is holding the old files open, a later check can apply the update. Reopen the card to load the new files.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\grandma-auto-update.ps1
+```
+
+To stop the checks, run the same command with `-Disable`.
+
 ## Use it
 
 | Tab | What you can do |
@@ -43,6 +53,8 @@ For a GitHub-backed update, run `codex plugin marketplace upgrade grandma-mode`,
 The tabs share the selected reply or passage. The original starts folded. Opening the card, looking at history, and switching tabs do not use model allowance. Click an action to generate something. Cached results can reappear without another request. **Rephrase** makes a fresh request for the same text.
 
 The answer follows the original language and keeps material numbers, dates, scope, and uncertainty. The interface follows the system language and supports English, Simplified Chinese, Traditional Chinese, and Japanese.
+
+To have the text tab rewrite new completed replies, check **Auto-rewrite new replies**. It starts off in every card and leaves existing replies alone. It pauses while you work in other tabs, browse replies, or edit the original. Closing the card turns it off. New rewrites use the selected model and its quota.
 
 ## Choose a model
 

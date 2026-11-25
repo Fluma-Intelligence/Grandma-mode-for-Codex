@@ -32,6 +32,16 @@ codex plugin add plain-speech@grandma-mode
 
 从 GitHub 安装的版本可以先运行 `codex plugin marketplace upgrade grandma-mode`，再运行 `codex plugin add plain-speech@grandma-mode` 更新。
 
+### Windows 自动更新
+
+在仓库目录用 PowerShell 运行下面这条命令。Windows 会在登录时和每隔六小时通过 Codex 的 Marketplace 检查 GitHub 更新。如果 Codex 正占着旧文件，下次检查会再试。更新后重新打开卡片即可。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\grandma-auto-update.ps1
+```
+
+要停止自动检查，在同一命令后加 `-Disable`。
+
 ## 怎么用
 
 | 标签 | 你可以做什么 |
@@ -43,6 +53,8 @@ codex plugin add plain-speech@grandma-mode
 三个标签共用同一条回复或选段。原文默认折叠。打开卡片、查看回复历史和切换标签都不会消耗模型用量，点生成才会开始。缓存已有结果时可以直接显示。「换种说法」会为同一段原文发起一次新请求。
 
 大白话跟随原文语言，保留重要数字、日期、适用范围和不确定性。界面跟随系统语言，支持简体中文、繁体中文、英语和日语。
+
+想让「一句话说清」自动翻译写完的新回复，可以勾选「自动翻新回复」。每张卡片默认关闭，勾选后从新回复开始。用其他标签、翻历史回复或改原文时会暂停，关卡片就结束。生成仍用你选的模型和额度。
 
 ## 选择模型
 

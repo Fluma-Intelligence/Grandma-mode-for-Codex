@@ -92,7 +92,14 @@
     </section>
 
     <section class="history" id="history" hidden>
-      <button class="quiet-action" id="history-toggle" type="button" aria-expanded="false" aria-controls="history-panel" data-i18n="chooseReply">选其他回复</button>
+      <div class="reply-actions">
+        <button class="quiet-action" id="history-toggle" type="button" aria-expanded="false" aria-controls="history-panel" data-i18n="chooseReply">选其他回复</button>
+        <label class="auto-rewrite">
+          <input id="auto-rewrite" type="checkbox" autocomplete="off" aria-describedby="auto-rewrite-hint">
+          <span data-i18n="autoRewrite">自动翻新回复</span>
+        </label>
+      </div>
+      <p class="usage auto-rewrite-hint" id="auto-rewrite-hint" data-i18n="autoRewriteHint" hidden>卡片打开时，写完的新回复会用你选的模型翻译。</p>
       <div class="history-panel" id="history-panel" hidden>
         <ul class="reply-list" id="reply-list"></ul>
         <p class="notice" id="history-notice" role="status" hidden></p>
