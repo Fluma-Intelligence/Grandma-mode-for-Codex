@@ -18,7 +18,7 @@ export async function withAppServer(signal, unavailable, read) {
     child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
-  async function request(method, params) {
+  async function request(method, params, onError) {
     const id = ++nextId;
     send({ id, method, params });
     for (;;) {
@@ -26,13 +26,13 @@ export async function withAppServer(signal, unavailable, read) {
       if (done) throw spawnError?.code === 'ENOENT' ? cliMissing() : unavailable();
       let message;
       try { message = JSON.parse(value); } catch { continue; }
-      if (message.id === id) return message.result;
+      if (message.id === id) return message.error ? onError?.(message.error) : message.result;
     }
   }
 
   try {
     if (!await request('initialize', {
-      clientInfo: { name: 'plain-speech', version: '0.6.6' }, capabilities: { experimentalApi: true },
+      clientInfo: { name: 'plain-speech', version: '0.6.7' }, capabilities: { experimentalApi: true },
     })) throw unavailable();
     send({ method: 'initialized' });
     return await read(request);

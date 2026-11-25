@@ -15,6 +15,8 @@
   const historyToggle = get('history-toggle');
   const historyPanel = get('history-panel');
   const historyNotice = get('history-notice');
+  const autoRewrite = get('auto-rewrite');
+  const autoHint = get('auto-rewrite-hint');
   const replyList = get('reply-list');
   const moreReplies = get('more-replies');
   const replyButton = get('translate-reply');
@@ -41,6 +43,8 @@
   let cachedDiagramPending;
   let modelRevision = 0;
   let lockModelSelection;
+  let autoSession;
+  let autoTimer;
   const views = window.createPlainSpeechViews({ onTab: switchView, onAction: loadExtraView });
 
   function hasChat() {
@@ -190,6 +194,7 @@
   }
 
   function modelChanged() {
+    stopAutoRewrite();
     modelRevision += 1;
     cachedDiagramPending = undefined;
     firstAnswer = '';
@@ -453,6 +458,56 @@
     return runRewrite('translate_plain_speech_reply', args, { text, selection });
   }
 
+  function stopAutoRewrite() {
+    clearTimeout(autoTimer);
+    autoSession = undefined;
+    autoRewrite.checked = false;
+    autoHint.hidden = true;
+  }
+
+  function readyForAutoRewrite() {
+    return !document.hidden && get('appearance').hidden && historyPanel.hidden && !original.open
+      && !edited && !busy && !sourcePending && !extraPending && views.current() === 'text';
+  }
+
+  async function checkForNewReplies(session) {
+    try {
+      if (document.hidden || (session.checkpoint !== undefined && !readyForAutoRewrite())) return;
+      if (!session.queued.length) {
+        const result = checkResult(await call('watch_plain_speech_replies', chatArgs({ after: session.checkpoint }), 14_000));
+        if (autoSession !== session) return;
+        const { checkpoint, replies } = result._meta ?? {};
+        if (!Array.isArray(replies) || checkpoint === undefined) throw new Error('historyUnavailable');
+        session.checkpoint = checkpoint;
+        session.queued = replies;
+      }
+      if (!readyForAutoRewrite() || !session.queued.length) return;
+      const target = session.queued.shift();
+      await rewriteReply(target);
+      if (autoSession === session && !answer) stopAutoRewrite();
+    } catch (error) {
+      // A just-created chat can take a moment to become readable by the local reply reader.
+      if (autoSession === session && !['historyUnavailable', 'connection'].includes(error.message)) {
+        stopAutoRewrite();
+        showNotice(error.message);
+      }
+    } finally {
+      if (autoSession === session) {
+        autoTimer = setTimeout(() => checkForNewReplies(session), session.queued.length && readyForAutoRewrite() ? 350 : 12_000);
+      }
+    }
+  }
+
+  autoRewrite.addEventListener('change', () => {
+    if (!autoRewrite.checked || !hasChat()) {
+      stopAutoRewrite();
+      return;
+    }
+    autoHint.hidden = false;
+    autoSession = { checkpoint: undefined, queued: [] };
+    checkForNewReplies(autoSession);
+  });
+
   button.addEventListener('click', () => {
     if (button.disabled) return;
     const latest = wantsLatest();
@@ -482,6 +537,7 @@
   });
 
   function resetLinkedView() {
+    stopAutoRewrite();
     view += 1;
     busy = sourcePending = historyPending = historyLoaded = extraPending = false;
     cachedDiagramPending = undefined;
@@ -547,11 +603,14 @@
       if (message.method === 'ui/notifications/tool-input') prefill(message.params?.arguments?.source);
       if (message.method === 'ui/notifications/tool-result') receiveInitial(message.params);
       if (message.method === 'ui/notifications/host-context-changed') acceptDeepLink(message.params);
-      if (message.method === 'ui/resource-teardown') post({ id: message.id, result: {} });
+      if (message.method === 'ui/resource-teardown') {
+        stopAutoRewrite();
+        post({ id: message.id, result: {} });
+      }
     });
 
     bridgeReady = request('ui/initialize', {
-      appInfo: { name: 'plain-speech', version: '0.6.6' },
+      appInfo: { name: 'plain-speech', version: '0.6.7' },
       appCapabilities: {},
       protocolVersion: '2026-01-26',
     }, 4500).then((result) => {
@@ -587,6 +646,7 @@
   }
 
   if (!standalone) connect();
+  window.addEventListener('pagehide', stopAutoRewrite);
   get('project-link').addEventListener('click', (event) => {
     const { href } = event.currentTarget;
     if (hostOpensLinks) {

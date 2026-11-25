@@ -34,8 +34,8 @@ async function withReader(threadId, signal, read) {
   return withAppServer(signal, unavailable, read);
 }
 
-function turns(request, threadId, cursor, limit, itemsView = 'summary') {
-  return request('thread/turns/list', { threadId, sortDirection: 'desc', limit, itemsView, cursor });
+function turns(request, threadId, cursor, limit, itemsView = 'summary', onError) {
+  return request('thread/turns/list', { threadId, sortDirection: 'desc', limit, itemsView, cursor }, onError);
 }
 
 async function readLegacyReply(request, threadId, turnId, messageId) {
@@ -93,6 +93,42 @@ export function readReplySnapshot(threadId, signal, target) {
 
 export async function readLatestReply(threadId, signal) {
   return (await readReplySnapshot(threadId, signal)).source;
+}
+
+export function watchReplyTargets(threadId, signal, after) {
+  return withReader(threadId, signal, async (request) => {
+    const targets = [];
+    const emptyNewThread = (error) => error.code === -32600 && error.message === `thread not loaded: ${threadId}`
+      ? { data: [] } : undefined;
+    let cursor;
+    let found = false;
+    for (let pageNumber = 0; pageNumber < 4; pageNumber += 1) {
+      const page = await turns(request, threadId, cursor, 8, 'summary', !cursor && after == null ? emptyNewThread : undefined);
+      if (!Array.isArray(page?.data)) throw unavailable();
+      for (const turn of page.data) {
+        const item = finalReply(turn);
+        if (!item) continue;
+        const target = { turnId: turn.id, messageId: item.id };
+        if (after === undefined) return { checkpoint: target, replies: [] };
+        if (target.turnId === after?.turnId && target.messageId === after?.messageId) {
+          found = true;
+          break;
+        }
+        targets.push(target);
+      }
+      if (found || !page.nextCursor || cursor === page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    const checkpoint = targets[0] ?? (found ? after : null);
+    // If the old checkpoint disappeared, resume from the current reply without rewriting history.
+    if (!found && after !== null) return { checkpoint, replies: [] };
+    const replies = [];
+    for (const target of targets.reverse()) {
+      const reply = await exactReply(request, threadId, target);
+      replies.push(reply.target);
+    }
+    return { checkpoint, replies };
+  });
 }
 
 export function listReplyPreviews(threadId, signal, cursor) {
